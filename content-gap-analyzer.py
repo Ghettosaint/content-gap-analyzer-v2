@@ -43,29 +43,41 @@ import nltk
 from nltk.tokenize import sent_tokenize, word_tokenize
 from nltk.corpus import stopwords
 
-try:
-    nltk.data.find('tokenizers/punkt')
-except LookupError:
-    import ssl
-    try:
-        _create_unverified_https_context = ssl._create_unverified_context
-    except AttributeError:
-        pass
-    else:
-        ssl._create_default_https_context = _create_unverified_https_context
-    nltk.download('punkt', quiet=True)
+# Download required NLTK data with better error handling
+import ssl
 
+# Handle SSL issues
 try:
-    nltk.data.find('corpora/stopwords')
-except LookupError:
-    import ssl
-    try:
-        _create_unverified_https_context = ssl._create_unverified_context
-    except AttributeError:
-        pass
-    else:
-        ssl._create_default_https_context = _create_unverified_https_context
-    nltk.download('stopwords', quiet=True)
+    _create_unverified_https_context = ssl._create_unverified_context
+except AttributeError:
+    pass
+else:
+    ssl._create_default_https_context = _create_unverified_https_context
+
+# Download NLTK data with multiple fallbacks
+def download_nltk_data():
+    """Download NLTK data with fallback options"""
+    downloads = [
+        ('punkt', 'tokenizers/punkt'),
+        ('punkt_tab', 'tokenizers/punkt_tab'), 
+        ('stopwords', 'corpora/stopwords')
+    ]
+    
+    for name, path in downloads:
+        try:
+            nltk.data.find(path)
+        except LookupError:
+            try:
+                nltk.download(name, quiet=True)
+            except:
+                try:
+                    # Fallback download
+                    nltk.download(name, quiet=False)
+                except:
+                    # Continue without this resource if absolutely necessary
+                    pass
+
+download_nltk_data()
 
 @dataclass
 class TopicData:
@@ -131,7 +143,12 @@ class DataDrivenSEOAnalyzer:
         }
         
         # Stop words for content analysis
-        self.stop_words = set(stopwords.words('english'))
+        # Initialize stop words with fallback
+        try:
+            self.stop_words = set(stopwords.words('english'))
+        except:
+            # Fallback stopwords if NLTK fails
+            self.stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
     
     def search_competitors(self, keyword: str, num_results: int = 10) -> List[str]:
         """Search for competitor URLs using Serper"""
@@ -1012,11 +1029,22 @@ class DataDrivenSEOAnalyzer:
             return "Irrelevant"
     
     def _extract_main_topics(self, content: str) -> List[str]:
-        """Extract main topics from content using simple keyword extraction"""
-        words = content.lower().split()
+        """Extract main topics from content using simple keyword extraction with fallback"""
+        try:
+            # Try NLTK tokenization first
+            words = word_tokenize(content.lower())
+        except:
+            # Fallback to simple split if NLTK fails
+            words = content.lower().split()
         
         # Remove stop words and get word frequency
-        clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
+        try:
+            # Try using NLTK stopwords
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
+        except:
+            # Fallback stopwords if NLTK fails
+            basic_stopwords = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in basic_stopwords]
         
         from collections import Counter
         word_freq = Counter(clean_words)
@@ -1483,7 +1511,7 @@ def main():
         # Your website link
         st.markdown("""
         <div style='text-align: right; padding-top: 20px;'>
-            <a href='https://tororank.com/' target='_blank' style='
+            <a href='https://yourwebsite.com' target='_blank' style='
                 color: #ff4b4b; 
                 text-decoration: none; 
                 font-weight: bold;
@@ -1577,7 +1605,7 @@ def main():
         else:  # Website Relevance Analysis
             website_url = st.text_input(
                 "Website URL", 
-                placeholder="https://tororank.com/",
+                placeholder="https://yourwebsite.com",
                 help="Enter the website URL to analyze for content relevance"
             )
             target_topic = st.text_input(
@@ -1619,8 +1647,8 @@ def main():
         st.markdown("""
         <div style='text-align: center; color: #666; font-size: 12px;'>
             Made with ❤️ by<br>
-            <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
-                TORO RANK
+            <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
+                Your Company Name
             </a>
         </div>
         """, unsafe_allow_html=True)
@@ -1855,7 +1883,8 @@ def main():
     st.markdown("""
     <div class='footer'>
         Powered by Data-Driven SEO Analysis | 
-        <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        Built with Streamlit & AI
     </div>
     """, unsafe_allow_html=True)
 
