@@ -1511,7 +1511,7 @@ def main():
         # Your website link
         st.markdown("""
         <div style='text-align: right; padding-top: 20px;'>
-            <a href='https://tororank.com/' target='_blank' style='
+            <a href='https://yourwebsite.com' target='_blank' style='
                 color: #ff4b4b; 
                 text-decoration: none; 
                 font-weight: bold;
@@ -1605,7 +1605,7 @@ def main():
         else:  # Website Relevance Analysis
             website_url = st.text_input(
                 "Website URL", 
-                placeholder="https://tororank.com/",
+                placeholder="https://yourwebsite.com",
                 help="Enter the website URL to analyze for content relevance"
             )
             target_topic = st.text_input(
@@ -1647,8 +1647,8 @@ def main():
         st.markdown("""
         <div style='text-align: center; color: #666; font-size: 12px;'>
             Made with ❤️ by<br>
-            <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
-                TORO RANK
+            <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
+                Your Company Name
             </a>
         </div>
         """, unsafe_allow_html=True)
@@ -1883,7 +1883,8 @@ def main():
     st.markdown("""
     <div class='footer'>
         Powered by Data-Driven SEO Analysis | 
-        <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        Built with Streamlit & AI
     </div>
     """, unsafe_allow_html=True)
 
