@@ -106,254 +106,68 @@ class DataDrivenSEOAnalyzer:
                     user_agent="SEO_Analyzer_v2.0"
                 )
             except Exception as e:
-                st.warning(f"Reddit API setup failed: {e}. Continuing without Reddit data.")
-        
-        # Load embedding model with better error suppression
-        if 'embedding_model' not in st.session_state:
-            with st.spinner("Loading AI embedding model..."):
-                try:
-                    # Comprehensive warning suppression
-                    import warnings
-                    import logging
-                    
-                    # Suppress all warnings temporarily
-                    warnings.filterwarnings("ignore")
-                    logging.getLogger().setLevel(logging.ERROR)
-                    
-                    # Temporarily redirect stderr
-                    import sys
-                    from io import StringIO
-                    old_stderr = sys.stderr
-                    sys.stderr = StringIO()
-                    
-                    try:
-                        st.session_state.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                    finally:
-                        # Restore stderr
-                        sys.stderr = old_stderr
-                    
-                except Exception as e:
-                    st.error(f"Failed to load embedding model: {e}")
-                    st.session_state.embedding_model = None
-        
-        self.embedding_model = st.session_state.embedding_model
-        
-        self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        
-        # Stop words for content analysis
-        # Initialize stop words with fallback
-        try:
-            self.stop_words = set(stopwords.words('english'))
-        except:
-            # Fallback stopwords if NLTK fails
-            self.stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
+            return {"error": f"Error analyzing website: {str(e)}"}
     
-    def search_competitors(self, keyword: str, num_results: int = 10) -> List[str]:
-        """Search for competitor URLs using Serper"""
-        url = "https://google.serper.dev/search"
+    def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
+        """Advanced website crawler with safety limits and better handling"""
+        pages_data = []
+        visited_urls = set()
+        urls_to_visit = [base_url]
         
-        payload = {'q': keyword, 'num': num_results}
-        headers = {'X-API-KEY': self.serper_key, 'Content-Type': 'application/json'}
+        # Get base domain for staying on same site
+        from urllib.parse import urljoin, urlparse, parse_qs
+        base_domain = urlparse(base_url).netloc
         
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
+        # Try to find sitemap first for faster discovery
+        sitemap_urls = self._discover_sitemap_urls(base_url)
+        if sitemap_urls:
+            st.info(f"📋 Found sitemap with {len(sitemap_urls)} URLs")
+            urls_to_visit.extend(sitemap_urls)
         
-        results = response.json()
-        return [result['link'] for result in results.get('organic', [])]
-    
-    def get_search_suggestions(self, keyword: str) -> List[TopicData]:
-        """Get real search suggestions from Google Autocomplete - NO FALLBACKS"""
-        suggestions = []
+        # Remove duplicates
+        urls_to_visit = list(dict.fromkeys(urls_to_visit))
         
-        # Google Autocomplete API - only real data
-        base_suggestions = [
-            f"{keyword} how to",
-            f"{keyword} best",
-            f"{keyword} vs",
-            f"{keyword} for",
-            f"{keyword} guide",
-            f"{keyword} problems",
-            f"{keyword} reviews",
-            f"{keyword} comparison"
-        ]
+        # Apply safety limits
+        if max_pages:
+            urls_to_visit = urls_to_visit[:max_pages]
+            st.info(f"🔍 Analyzing up to {max_pages} pages (user limit)")
+        else:
+            # Safety limit for unlimited crawling
+            if len(urls_to_visit) > 1000:
+                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 1000 pages for performance.")
+                urls_to_visit = urls_to_visit[:1000]
+            st.info(f"🔍 Analyzing website ({len(urls_to_visit)} URLs discovered)")
         
-        for base in base_suggestions:
-            try:
-                autocomplete_url = f"http://suggestqueries.google.com/complete/search?client=firefox&q={quote_plus(base)}"
-                response = requests.get(autocomplete_url, timeout=5, headers=self.headers)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if len(data) > 1 and isinstance(data[1], list):
-                        for suggestion in data[1][:3]:  # Top 3 per base
-                            if (len(suggestion) > 10 and 
-                                suggestion.lower() != base.lower() and
-                                suggestion not in suggestions):
-                                suggestions.append(suggestion)
-                
-                time.sleep(0.5)  # Rate limiting
-                
-            except Exception as e:
-                continue  # Just skip if API fails - NO FALLBACKS
+        progress_bar = st.progress(0)
+        status_text = st.empty()
         
-        # Convert to TopicData objects - ONLY REAL DATA
-        topic_data = []
-        if suggestions and self.embedding_model:
-            embeddings = self.embedding_model.encode(suggestions)
-            
-            for suggestion, embedding in zip(suggestions, embeddings):
-                topic_data.append(TopicData(
-                    text=suggestion,
-                    embedding=embedding,
-                    source='search_suggest',
-                    source_url='google_autocomplete',
-                    competitor_id=-1,
-                    confidence=0.8
-                ))
+        total_to_process = len(urls_to_visit)
+        successful_crawls = 0
+        errors = 0
         
-        return topic_data
-    
-    def mine_reddit_discussions(self, keyword: str, max_posts: int = 30) -> List[TopicData]:
-        """Mine Reddit for real user questions - NO FALLBACKS"""
-        reddit_topics = []
-        
-        if not self.reddit:
-            st.info("Reddit API not configured. Skipping Reddit mining.")
-            return reddit_topics  # Return empty list - NO FALLBACKS
-        
-        try:
-            subreddit = self.reddit.subreddit('all')
-            
-            # Search for posts containing the keyword
-            for submission in subreddit.search(keyword, limit=max_posts, sort='hot'):
-                
-                # Process the main post title
-                title = submission.title.strip()
-                if self._is_meaningful_question(title, keyword):
-                    reddit_topics.append({
-                        'text': title,
-                        'upvotes': submission.score,
-                        'url': f"https://reddit.com{submission.permalink}"
-                    })
-                
-                # Process selftext if it contains questions
-                if submission.selftext and len(submission.selftext) > 50:
-                    questions = self._extract_questions(submission.selftext, keyword)
-                    for question in questions:
-                        reddit_topics.append({
-                            'text': question,
-                            'upvotes': submission.score,
-                            'url': f"https://reddit.com{submission.permalink}"
-                        })
-            
-            # Filter and convert to embeddings - ONLY REAL DATA
-            if reddit_topics and self.embedding_model:
-                filtered_topics = self._filter_reddit_topics(reddit_topics, keyword)
-                
-                if filtered_topics:
-                    texts = [topic['text'] for topic in filtered_topics]
-                    embeddings = self.embedding_model.encode(texts)
-                    
-                    topic_data = []
-                    for topic, embedding in zip(filtered_topics, embeddings):
-                        topic_data.append(TopicData(
-                            text=topic['text'],
-                            embedding=embedding,
-                            source='reddit',
-                            source_url=topic['url'],
-                            competitor_id=-1,
-                            confidence=0.9,
-                            upvotes=topic['upvotes']
-                        ))
-                    
-                    return topic_data
-        
-        except Exception as e:
-            st.warning(f"Reddit mining failed: {e}")
-        
-        return []  # Return empty if no real data found
-    
-    def _is_meaningful_question(self, text: str, keyword: str) -> bool:
-        """Check if text is a meaningful question"""
-        text_lower = text.lower()
-        keyword_lower = keyword.lower()
-        
-        # Must contain the keyword (strict requirement)
-        if keyword_lower not in text_lower:
-            return False
-        
-        # Filter out garbage patterns
-        garbage_patterns = [
-            'carrying on here', 'character limit', 'reddit mod',
-            r'^(so|and|but|the|a|an)\s', r'^\w{1,2}\s'
-        ]
-        
-        for pattern in garbage_patterns:
-            if re.search(pattern, text_lower):
-                return False
-        
-        # Must be long enough
-        if len(text.split()) < 4:
-            return False
-        
-        # Should contain question indicators
-        indicators = ['how', 'what', 'why', 'where', 'when', 'which', 'best', 'recommend', '?', 'help', 'advice']
-        return any(indicator in text_lower for indicator in indicators)
-    
-    def _extract_questions(self, text: str, keyword: str) -> List[str]:
-        """Extract questions from text"""
-        questions = []
-        sentences = re.split(r'[.!?]+', text)
-        
-        for sentence in sentences[:5]:  # Check first 5 sentences
-            sentence = sentence.strip()
-            if (self._is_meaningful_question(sentence, keyword) and 
-                20 <= len(sentence) <= 200):
-                questions.append(sentence)
-        
-        return questions[:2]  # Max 2 questions per text
-    
-    def _filter_reddit_topics(self, topics: List[Dict], keyword: str) -> List[Dict]:
-        """Filter and deduplicate Reddit topics"""
-        filtered = []
-        seen_texts = set()
-        
-        for topic in topics:
-            text = topic['text'].strip()
-            text_lower = text.lower()
-            
-            # Skip duplicates
-            if text_lower in seen_texts:
+        for i, current_url in enumerate(urls_to_visit):
+            if current_url in visited_urls:
                 continue
+                
+            visited_urls.add(current_url)
+            status_text.text(f"Crawling {i+1}/{total_to_process}: {current_url.split('/')[-1][:50]}...")
             
-            # Skip non-English (basic check)
-            if not any(c.isascii() for c in text):
-                continue
-            
-            seen_texts.add(text_lower)
-            filtered.append(topic)
-        
-        # Sort by upvotes and take top ones
-        filtered.sort(key=lambda x: x['upvotes'], reverse=True)
-        return filtered[:10]  # Top 10 quality topics
-    
-    def scrape_competitor_content(self, urls: List[str], progress_bar=None) -> List[TopicData]:
-        """Scrape competitor content with proper depth analysis"""
-        all_topics = []
-        
-        if not self.embedding_model:
-            st.warning("Embedding model not loaded. Skipping competitor analysis.")
-            return all_topics
-        
-        for i, url in enumerate(urls):
-            if progress_bar:
-                progress_bar.progress((i + 1) / len(urls), f"Analyzing competitor {i+1}/{len(urls)}")
+            # Fix progress calculation
+            progress_value = min((i + 1) / max(total_to_process, 1), 1.0)
+            progress_bar.progress(progress_value)
             
             try:
-                response = requests.get(url, headers=self.headers, timeout=10)
+                # Skip certain file types
+                if any(current_url.lower().endswith(ext) for ext in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.xml', '.txt']):
+                    continue
+                
+                response = requests.get(current_url, headers=self.headers, timeout=20)
                 response.raise_for_status()
+                
+                # Skip non-HTML content
+                content_type = response.headers.get('content-type', '').lower()
+                if 'text/html' not in content_type:
+                    continue
                 
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
@@ -566,38 +380,6 @@ class DataDrivenSEOAnalyzer:
         
         return urls
     
-    def _extract_main_content(self, soup) -> str:
-        """Extract main content using multiple strategies"""
-        content = ""
-        
-        # Strategy 1: Look for main content selectors
-        content_selectors = [
-            'article', 'main', '[role="main"]', '.content', '#content', 
-            '.post-content', '.entry-content', '.page-content', '.article-content',
-            '.post', '.entry', '.article', '.blog-post'
-        ]
-        
-        for selector in content_selectors:
-            elements = soup.select(selector)
-            if elements:
-                content = ' '.join([elem.get_text() for elem in elements])
-                break
-        
-        # Strategy 2: If no main content found, use body but filter out common noise
-        if not content or len(content) < 100:
-            body = soup.find('body')
-            if body:
-                # Remove common navigation and sidebar elements
-                for noise in body.select('nav, .navigation, .sidebar, .menu, .footer, .header, .breadcrumb, .social, .share'):
-                    noise.decompose()
-                content = body.get_text()
-        
-        # Strategy 3: Fallback to all text
-        if not content:
-            content = soup.get_text()
-        
-        return content
-    
     def _discover_internal_links(self, soup, current_url: str, base_domain: str, visited_urls: set) -> List[str]:
         """Discover internal links from current page with better filtering"""
         from urllib.parse import urljoin, urlparse, urlunparse
@@ -642,40 +424,6 @@ class DataDrivenSEOAnalyzer:
                     break
         
         return new_urls
-    
-    def _categorize_relevance(self, similarity_score: float) -> str:
-        """Categorize relevance based on similarity score with more lenient thresholds"""
-        if similarity_score >= 0.5:  # Lowered from 0.7
-            return "Highly Relevant"
-        elif similarity_score >= 0.25:  # Lowered from 0.4
-            return "Somewhat Relevant"
-        else:
-            return "Irrelevant"
-    
-    def _extract_main_topics(self, content: str) -> List[str]:
-        """Extract main topics from content using simple keyword extraction with fallback"""
-        try:
-            # Try NLTK tokenization first
-            words = word_tokenize(content.lower())
-        except:
-            # Fallback to simple split if NLTK fails
-            words = content.lower().split()
-        
-        # Remove stop words and get word frequency
-        try:
-            # Try using NLTK stopwords
-            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
-        except:
-            # Fallback stopwords if NLTK fails
-            basic_stopwords = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
-            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in basic_stopwords]
-        
-        from collections import Counter
-        word_freq = Counter(clean_words)
-        
-        # Get top 5 most frequent meaningful words
-        top_words = [word for word, freq in word_freq.most_common(5)]
-        return top_words
     
     def create_relevance_visualization(self, relevance_data: Dict) -> go.Figure:
         """Create visualization for website relevance analysis"""
@@ -1525,38 +1273,274 @@ def main():
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main()
+    main() as e:
+                st.warning(f"Reddit API setup failed: {e}. Continuing without Reddit data.")
+        
+        # Load embedding model with better error suppression
+        if 'embedding_model' not in st.session_state:
+            with st.spinner("Loading AI embedding model..."):
+                try:
+                    # Comprehensive warning suppression
+                    import warnings
+                    import logging
+                    
+                    # Suppress all warnings temporarily
+                    warnings.filterwarnings("ignore")
+                    logging.getLogger().setLevel(logging.ERROR)
+                    
+                    # Temporarily redirect stderr
+                    import sys
+                    from io import StringIO
+                    old_stderr = sys.stderr
+                    sys.stderr = StringIO()
+                    
+                    try:
+                        st.session_state.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                    finally:
+                        # Restore stderr
+                        sys.stderr = old_stderr
+                    
+                except Exception as e:
+                    st.error(f"Failed to load embedding model: {e}")
+                    st.session_state.embedding_model = None
+        
+        self.embedding_model = st.session_state.embedding_model
+        
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        # Stop words for content analysis
+        # Initialize stop words with fallback
+        try:
+            self.stop_words = set(stopwords.words('english'))
+        except:
+            # Fallback stopwords if NLTK fails
+            self.stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
+    
+    def search_competitors(self, keyword: str, num_results: int = 10) -> List[str]:
+        """Search for competitor URLs using Serper"""
+        url = "https://google.serper.dev/search"
+        
+        payload = {'q': keyword, 'num': num_results}
+        headers = {'X-API-KEY': self.serper_key, 'Content-Type': 'application/json'}
+        
+        response = requests.post(url, headers=headers, json=payload)
+        response.raise_for_status()
+        
+        results = response.json()
+        return [result['link'] for result in results.get('organic', [])]
+    
+    def get_search_suggestions(self, keyword: str) -> List[TopicData]:
+        """Get real search suggestions from Google Autocomplete - NO FALLBACKS"""
+        suggestions = []
+        
+        # Google Autocomplete API - only real data
+        base_suggestions = [
+            f"{keyword} how to",
+            f"{keyword} best",
+            f"{keyword} vs",
+            f"{keyword} for",
+            f"{keyword} guide",
+            f"{keyword} problems",
+            f"{keyword} reviews",
+            f"{keyword} comparison"
+        ]
+        
+        for base in base_suggestions:
+            try:
+                autocomplete_url = f"http://suggestqueries.google.com/complete/search?client=firefox&q={quote_plus(base)}"
+                response = requests.get(autocomplete_url, timeout=5, headers=self.headers)
                 
-                # Remove noise
-                for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                if response.status_code == 200:
+                    data = response.json()
+                    if len(data) > 1 and isinstance(data[1], list):
+                        for suggestion in data[1][:3]:  # Top 3 per base
+                            if (len(suggestion) > 10 and 
+                                suggestion.lower() != base.lower() and
+                                suggestion not in suggestions):
+                                suggestions.append(suggestion)
+                
+                time.sleep(0.5)  # Rate limiting
+                
+            except Exception as e:
+                continue  # Just skip if API fails - NO FALLBACKS
+        
+        # Convert to TopicData objects - ONLY REAL DATA
+        topic_data = []
+        if suggestions and self.embedding_model:
+            embeddings = self.embedding_model.encode(suggestions)
+            
+            for suggestion, embedding in zip(suggestions, embeddings):
+                topic_data.append(TopicData(
+                    text=suggestion,
+                    embedding=embedding,
+                    source='search_suggest',
+                    source_url='google_autocomplete',
+                    competitor_id=-1,
+                    confidence=0.8
+                ))
+        
+        return topic_data
+    
+    def mine_reddit_discussions(self, keyword: str, max_posts: int = 30) -> List[TopicData]:
+        """Mine Reddit for real user questions - NO FALLBACKS"""
+        reddit_topics = []
+        
+        if not self.reddit:
+            st.info("Reddit API not configured. Skipping Reddit mining.")
+            return reddit_topics  # Return empty list - NO FALLBACKS
+        
+        try:
+            subreddit = self.reddit.subreddit('all')
+            
+            # Search for posts containing the keyword
+            for submission in subreddit.search(keyword, limit=max_posts, sort='hot'):
+                
+                # Process the main post title
+                title = submission.title.strip()
+                if self._is_meaningful_question(title, keyword):
+                    reddit_topics.append({
+                        'text': title,
+                        'upvotes': submission.score,
+                        'url': f"https://reddit.com{submission.permalink}"
+                    })
+                
+                # Process selftext if it contains questions
+                if submission.selftext and len(submission.selftext) > 50:
+                    questions = self._extract_questions(submission.selftext, keyword)
+                    for question in questions:
+                        reddit_topics.append({
+                            'text': question,
+                            'upvotes': submission.score,
+                            'url': f"https://reddit.com{submission.permalink}"
+                        })
+            
+            # Filter and convert to embeddings - ONLY REAL DATA
+            if reddit_topics and self.embedding_model:
+                filtered_topics = self._filter_reddit_topics(reddit_topics, keyword)
+                
+                if filtered_topics:
+                    texts = [topic['text'] for topic in filtered_topics]
+                    embeddings = self.embedding_model.encode(texts)
+                    
+                    topic_data = []
+                    for topic, embedding in zip(filtered_topics, embeddings):
+                        topic_data.append(TopicData(
+                            text=topic['text'],
+                            embedding=embedding,
+                            source='reddit',
+                            source_url=topic['url'],
+                            competitor_id=-1,
+                            confidence=0.9,
+                            upvotes=topic['upvotes']
+                        ))
+                    
+                    return topic_data
+        
+        except Exception as e:
+            st.warning(f"Reddit mining failed: {e}")
+        
+        return []  # Return empty if no real data found
+    
+    def _is_meaningful_question(self, text: str, keyword: str) -> bool:
+        """Check if text is a meaningful question"""
+        text_lower = text.lower()
+        keyword_lower = keyword.lower()
+        
+        # Must contain the keyword (strict requirement)
+        if keyword_lower not in text_lower:
+            return False
+        
+        # Filter out garbage patterns
+        garbage_patterns = [
+            'carrying on here', 'character limit', 'reddit mod',
+            r'^(so|and|but|the|a|an)\s', r'^\w{1,2}\s'
+        ]
+        
+        for pattern in garbage_patterns:
+            if re.search(pattern, text_lower):
+                return False
+        
+        # Must be long enough
+        if len(text.split()) < 4:
+            return False
+        
+        # Should contain question indicators
+        indicators = ['how', 'what', 'why', 'where', 'when', 'which', 'best', 'recommend', '?', 'help', 'advice']
+        return any(indicator in text_lower for indicator in indicators)
+    
+    def _extract_questions(self, text: str, keyword: str) -> List[str]:
+        """Extract questions from text"""
+        questions = []
+        sentences = re.split(r'[.!?]+', text)
+        
+        for sentence in sentences[:5]:  # Check first 5 sentences
+            sentence = sentence.strip()
+            if (self._is_meaningful_question(sentence, keyword) and 
+                20 <= len(sentence) <= 200):
+                questions.append(sentence)
+        
+        return questions[:2]  # Max 2 questions per text
+    
+    def _filter_reddit_topics(self, topics: List[Dict], keyword: str) -> List[Dict]:
+        """Filter and deduplicate Reddit topics"""
+        filtered = []
+        seen_texts = set()
+        
+        for topic in topics:
+            text = topic['text'].strip()
+            text_lower = text.lower()
+            
+            # Skip duplicates
+            if text_lower in seen_texts:
+                continue
+            
+            # Skip non-English (basic check)
+            if not any(c.isascii() for c in text):
+                continue
+            
+            seen_texts.add(text_lower)
+            filtered.append(topic)
+        
+        # Sort by upvotes and take top ones
+        filtered.sort(key=lambda x: x['upvotes'], reverse=True)
+        return filtered[:10]  # Top 10 quality topics
+    
+    def scrape_competitor_content(self, urls: List[str], progress_bar=None) -> List[TopicData]:
+        """Scrape competitor content with proper depth analysis"""
+        all_topics = []
+        
+        if not self.embedding_model:
+            st.warning("Embedding model not loaded. Skipping competitor analysis.")
+            return all_topics
+        
+        for i, url in enumerate(urls):
+            if progress_bar:
+                progress_bar.progress((i + 1) / len(urls), f"Analyzing competitor {i+1}/{len(urls)}")
+            
+            try:
+                response = requests.get(url, headers=self.headers, timeout=10)
+                response.raise_for_status()
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
+                
+                # Remove noise elements
+                for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
                     element.decompose()
                 
-                # Get main content
-                content = ""
-                content_selectors = ['article', 'main', '.content', '#content', '.post-content', '.entry-content']
+                # Get page title
+                title = soup.find('title')
+                title_text = title.get_text().strip() if title else url.split('/')[-1]
                 
-                for selector in content_selectors:
-                    elements = soup.select(selector)
-                    if elements:
-                        content = ' '.join([elem.get_text() for elem in elements])
-                        break
-                
-                if not content:
-                    body = soup.find('body')
-                    content = body.get_text() if body else ""
-                
+                # Get main content with multiple strategies
+                content = self._extract_main_content(soup)
                 content = re.sub(r'\s+', ' ', content).strip()
                 
-                # Calculate total article word count
-                try:
-                    total_words = len([w for w in word_tokenize(content.lower()) 
-                                     if w.isalpha() and w not in self.stop_words])
-                except:
-                    # Fallback word count if NLTK fails
-                    total_words = len([w for w in content.lower().split() 
-                                     if w.isalpha() and w not in self.stop_words])
+                # Calculate word count
+                word_count = len([w for w in content.split() if w.isalpha()])
                 
-                if total_words > 100:
+                if word_count > 50:  # Include pages with substantial content
                     # Extract headings for topic analysis
                     headings = []
                     for tag in ['h1', 'h2', 'h3']:
@@ -1577,7 +1561,7 @@ if __name__ == "__main__":
                                 source_url=url,
                                 competitor_id=i,
                                 confidence=0.6,
-                                word_count=total_words  # Total article word count
+                                word_count=word_count  # Total article word count
                             ))
                 
                 time.sleep(1)
@@ -1587,6 +1571,38 @@ if __name__ == "__main__":
                 continue
         
         return all_topics
+    
+    def _extract_main_content(self, soup) -> str:
+        """Extract main content using multiple strategies"""
+        content = ""
+        
+        # Strategy 1: Look for main content selectors
+        content_selectors = [
+            'article', 'main', '[role="main"]', '.content', '#content', 
+            '.post-content', '.entry-content', '.page-content', '.article-content',
+            '.post', '.entry', '.article', '.blog-post'
+        ]
+        
+        for selector in content_selectors:
+            elements = soup.select(selector)
+            if elements:
+                content = ' '.join([elem.get_text() for elem in elements])
+                break
+        
+        # Strategy 2: If no main content found, use body but filter out common noise
+        if not content or len(content) < 100:
+            body = soup.find('body')
+            if body:
+                # Remove common navigation and sidebar elements
+                for noise in body.select('nav, .navigation, .sidebar, .menu, .footer, .header, .breadcrumb, .social, .share'):
+                    noise.decompose()
+                content = body.get_text()
+        
+        # Strategy 3: Fallback to all text
+        if not content:
+            content = soup.get_text()
+        
+        return content
     
     def analyze_content_depth(self, competitor_topics: List[TopicData]) -> List[TopicData]:
         """Find thin content opportunities with clear, actionable topics"""
@@ -1792,7 +1808,40 @@ if __name__ == "__main__":
                 
                 semantic_gaps.append(semantic_gap)
         
-        return semantic_gaps  # Fixed: Added return statement
+        return semantic_gaps
+    
+    def _categorize_relevance(self, similarity_score: float) -> str:
+        """Categorize relevance based on similarity score with more lenient thresholds"""
+        if similarity_score >= 0.5:  # Lowered from 0.7
+            return "Highly Relevant"
+        elif similarity_score >= 0.25:  # Lowered from 0.4
+            return "Somewhat Relevant"
+        else:
+            return "Irrelevant"
+    
+    def _extract_main_topics(self, content: str) -> List[str]:
+        """Extract main topics from content using simple keyword extraction with fallback"""
+        try:
+            # Try NLTK tokenization first
+            words = word_tokenize(content.lower())
+        except:
+            # Fallback to simple split if NLTK fails
+            words = content.lower().split()
+        
+        # Remove stop words and get word frequency
+        try:
+            # Try using NLTK stopwords
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
+        except:
+            # Fallback stopwords if NLTK fails
+            basic_stopwords = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in basic_stopwords]
+        
+        word_freq = Counter(clean_words)
+        
+        # Get top 5 most frequent meaningful words
+        top_words = [word for word, freq in word_freq.most_common(5)]
+        return top_words
     
     def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
         """Analyze entire website to find irrelevant content using vector embeddings"""
@@ -1855,68 +1904,4 @@ if __name__ == "__main__":
                 'pages': relevance_results
             }
             
-        except Exception as e:
-            return {"error": f"Error analyzing website: {str(e)}"}
-    
-    def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
-        """Advanced website crawler with safety limits and better handling"""
-        pages_data = []
-        visited_urls = set()
-        urls_to_visit = [base_url]
-        
-        # Get base domain for staying on same site
-        from urllib.parse import urljoin, urlparse, parse_qs
-        base_domain = urlparse(base_url).netloc
-        
-        # Try to find sitemap first for faster discovery
-        sitemap_urls = self._discover_sitemap_urls(base_url)
-        if sitemap_urls:
-            st.info(f"📋 Found sitemap with {len(sitemap_urls)} URLs")
-            urls_to_visit.extend(sitemap_urls)
-        
-        # Remove duplicates
-        urls_to_visit = list(dict.fromkeys(urls_to_visit))
-        
-        # Apply safety limits
-        if max_pages:
-            urls_to_visit = urls_to_visit[:max_pages]
-            st.info(f"🔍 Analyzing up to {max_pages} pages (user limit)")
-        else:
-            # Safety limit for unlimited crawling
-            if len(urls_to_visit) > 1000:
-                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 1000 pages for performance.")
-                urls_to_visit = urls_to_visit[:1000]
-            st.info(f"🔍 Analyzing website ({len(urls_to_visit)} URLs discovered)")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        total_to_process = len(urls_to_visit)
-        successful_crawls = 0
-        errors = 0
-        
-        for i, current_url in enumerate(urls_to_visit):
-            if current_url in visited_urls:
-                continue
-                
-            visited_urls.add(current_url)
-            status_text.text(f"Crawling {i+1}/{total_to_process}: {current_url.split('/')[-1][:50]}...")
-            
-            # Fix progress calculation
-            progress_value = min((i + 1) / max(total_to_process, 1), 1.0)
-            progress_bar.progress(progress_value)
-            
-            try:
-                # Skip certain file types
-                if any(current_url.lower().endswith(ext) for ext in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.xml', '.txt']):
-                    continue
-                
-                response = requests.get(current_url, headers=self.headers, timeout=20)
-                response.raise_for_status()
-                
-                # Skip non-HTML content
-                content_type = response.headers.get('content-type', '').lower()
-                if 'text/html' not in content_type:
-                    continue
-                
-                soup = BeautifulSoup(response.content, 'html.parser')
+        except Exception
