@@ -106,7 +106,7 @@ class DataDrivenSEOAnalyzer:
                     user_agent="SEO_Analyzer_v2.0"
                 )
             except Exception as e:
-                return {"error": f"Error analyzing website: {str(e)}"}
+                    return {"error": f"Error analyzing website: {str(e)}"}
     
     def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
         """Advanced website crawler with safety limits and better handling"""
@@ -1273,13 +1273,8 @@ def main():
     """, unsafe_allow_html=True)
 
 if __name__ == "__main__":
-    main() as e:
-                st.warning(f"Reddit API setup failed: {e}. Continuing without Reddit data.")
-        
-        # Load embedding model with better error suppression
-        if 'embedding_model' not in st.session_state:
-            with st.spinner("Loading AI embedding model..."):
-                try:
+    main()
+    try:
                     # Comprehensive warning suppression
                     import warnings
                     import logging
@@ -1300,19 +1295,19 @@ if __name__ == "__main__":
                         # Restore stderr
                         sys.stderr = old_stderr
                     
-                except Exception as e:
+    except Exception as e:
                     st.error(f"Failed to load embedding model: {e}")
                     st.session_state.embedding_model = None
         
-        self.embedding_model = st.session_state.embedding_model
+                    self.embedding_model = st.session_state.embedding_model
         
-        self.headers = {
+                    self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
         }
         
         # Stop words for content analysis
         # Initialize stop words with fallback
-        try:
+    try:
             self.stop_words = set(stopwords.words('english'))
         except:
             # Fallback stopwords if NLTK fails
@@ -1904,4 +1899,5 @@ if __name__ == "__main__":
                 'pages': relevance_results
             }
             
-        except Exception
+        except Exception as e:
+            return {"error": f"Error analyzing website: {str(e)}"}
