@@ -695,9 +695,9 @@ class DataDrivenSEOAnalyzer:
             st.info(f"🔍 Analyzing up to {max_pages} pages (user limit)")
         else:
             # Safety limit for unlimited crawling
-            if len(urls_to_visit) > 500:
-                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 500 pages for performance.")
-                urls_to_visit = urls_to_visit[:500]
+            if len(urls_to_visit) > 1000:
+                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 1000 pages for performance.")
+                urls_to_visit = urls_to_visit[:1000]
             st.info(f"🔍 Analyzing website ({len(urls_to_visit)} URLs discovered)")
         
         progress_bar = st.progress(0)
@@ -775,8 +775,8 @@ class DataDrivenSEOAnalyzer:
                 continue
             
             # Safety break for very large sites
-            if len(pages_data) > 200:
-                st.warning(f"⚠️ Reached 200 pages limit for performance. Stopping crawl.")
+            if len(pages_data) > 500:
+                st.warning(f"⚠️ Reached 500 pages analyzed for performance. Stopping crawl.")
                 break
         
         status_text.text(f"✅ Crawl complete: {successful_crawls} pages analyzed, {errors} errors")
@@ -849,7 +849,7 @@ class DataDrivenSEOAnalyzer:
             # Try a more aggressive approach for sites without sitemaps
             return self._fallback_url_discovery(base_url)
         
-        return sitemap_urls[:1000]  # Reasonable limit to prevent crashes
+        return sitemap_urls[:2000]  # Increased limit to accommodate larger sites
     
     def _fallback_url_discovery(self, base_url: str) -> List[str]:
         """Fallback URL discovery for sites without sitemaps"""
@@ -1511,7 +1511,7 @@ def main():
         # Your website link
         st.markdown("""
         <div style='text-align: right; padding-top: 20px;'>
-            <a href='https://yourwebsite.com' target='_blank' style='
+            <a href='https://tororank.com/' target='_blank' style='
                 color: #ff4b4b; 
                 text-decoration: none; 
                 font-weight: bold;
@@ -1623,13 +1623,13 @@ def main():
                 )
                 
                 if crawl_mode == "📊 Limited Crawl":
-                    max_pages = st.slider("Max Pages to Analyze", 10, 500, 100)
+                    max_pages = st.slider("Max Pages to Analyze", 10, 1000, 200)
                 else:
                     max_pages = None
-                    st.info("✅ Will analyze up to 500 pages (performance limit) using sitemaps and intelligent crawling")
+                    st.info("✅ Will analyze up to 1000 pages (performance limit) using sitemaps and intelligent crawling")
                 
                 # Performance warning
-                st.warning("⚠️ **Performance Notice**: Large websites (500+ pages) may take 15-30 minutes to analyze. Consider using Limited Crawl for faster results.")
+                st.warning("⚠️ **Performance Notice**: Large websites (1000+ pages) may take 30-60 minutes to analyze. Consider using Limited Crawl for faster results.")
                 
                 st.markdown("""
                 **Crawling Strategy:**
@@ -1883,8 +1883,7 @@ def main():
     st.markdown("""
     <div class='footer'>
         Powered by Data-Driven SEO Analysis | 
-        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
-        Built with Streamlit & AI
+        <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
     </div>
     """, unsafe_allow_html=True)
 
