@@ -1511,7 +1511,7 @@ def main():
         # Your website link
         st.markdown("""
         <div style='text-align: right; padding-top: 20px;'>
-            <a href='https://tororank.com/' target='_blank' style='
+            <a href='https://yourwebsite.com' target='_blank' style='
                 color: #ff4b4b; 
                 text-decoration: none; 
                 font-weight: bold;
@@ -1883,7 +1883,8 @@ def main():
     st.markdown("""
     <div class='footer'>
         Powered by Data-Driven SEO Analysis | 
-        <a href='https://tororank.com/' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        Built with Streamlit & AI
     </div>
     """, unsafe_allow_html=True)
 
