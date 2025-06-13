@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Data-Driven Vector SEO Analyzer (Clean Version)
+Data-Driven Vector SEO Analyzer (Fixed Version)
 Uses REAL data instead of guesses:
 - Reddit discussions (real user questions)
 - Search suggestions (actual searches)
@@ -200,7 +200,7 @@ class DataDrivenSEOAnalyzer:
         
         # Convert to TopicData objects - ONLY REAL DATA
         topic_data = []
-        if suggestions:
+        if suggestions and self.embedding_model:
             embeddings = self.embedding_model.encode(suggestions)
             
             for suggestion, embedding in zip(suggestions, embeddings):
@@ -249,7 +249,7 @@ class DataDrivenSEOAnalyzer:
                         })
             
             # Filter and convert to embeddings - ONLY REAL DATA
-            if reddit_topics:
+            if reddit_topics and self.embedding_model:
                 filtered_topics = self._filter_reddit_topics(reddit_topics, keyword)
                 
                 if filtered_topics:
@@ -343,6 +343,10 @@ class DataDrivenSEOAnalyzer:
         """Scrape competitor content with proper depth analysis"""
         all_topics = []
         
+        if not self.embedding_model:
+            st.warning("Embedding model not loaded. Skipping competitor analysis.")
+            return all_topics
+        
         for i, url in enumerate(urls):
             if progress_bar:
                 progress_bar.progress((i + 1) / len(urls), f"Analyzing competitor {i+1}/{len(urls)}")
@@ -350,386 +354,6 @@ class DataDrivenSEOAnalyzer:
             try:
                 response = requests.get(url, headers=self.headers, timeout=10)
                 response.raise_for_status()
-                
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                # Remove noise
-                for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
-                    element.decompose()
-                
-                # Get main content
-                content = ""
-                content_selectors = ['article', 'main', '.content', '#content', '.post-content', '.entry-content']
-                
-                for selector in content_selectors:
-                    elements = soup.select(selector)
-                    if elements:
-                        content = ' '.join([elem.get_text() for elem in elements])
-                        break
-                
-                if not content:
-                    body = soup.find('body')
-                    content = body.get_text() if body else ""
-                
-                content = re.sub(r'\s+', ' ', content).strip()
-                
-                # Calculate total article word count
-                total_words = len([w for w in word_tokenize(content.lower()) 
-                                 if w.isalpha() and w not in self.stop_words])
-                
-                if total_words > 100:
-                    # Extract headings for topic analysis
-                    headings = []
-                    for tag in ['h1', 'h2', 'h3']:
-                        for heading in soup.find_all(tag):
-                            heading_text = heading.get_text().strip()
-                            if 10 <= len(heading_text) <= 100:
-                                headings.append(heading_text)
-                    
-                    # Process headings as topics
-                    if headings:
-                        embeddings = self.embedding_model.encode(headings[:5])  # Top 5 headings
-                        
-                        for heading, embedding in zip(headings[:5], embeddings):
-                            all_topics.append(TopicData(
-                                text=heading,
-                                embedding=embedding,
-                                source='competitor',
-                                source_url=url,
-                                competitor_id=i,
-                                confidence=0.6,
-                                word_count=total_words  # Total article word count
-                            ))
-                
-                time.sleep(1)
-                
-            except Exception as e:
-                st.warning(f"Error analyzing {url}: {str(e)}")
-                continue
-        
-        return all_topics
-    
-    def analyze_content_depth(self, competitor_topics: List[TopicData]) -> List[TopicData]:
-        """Find thin content opportunities with clear, actionable topics"""
-        depth_gaps = []
-        
-        if not competitor_topics:
-            return depth_gaps
-        
-        # Group by URL to get article depths
-        url_depths = {}
-        url_topics = {}
-        
-        for topic in competitor_topics:
-            url = topic.source_url
-            if url not in url_depths:
-                url_depths[url] = topic.word_count
-                url_topics[url] = topic.text
-        
-        # Find thin content (less than 1500 words)
-        thin_content = {url: words for url, words in url_depths.items() if words < 1500}
-        
-        if thin_content:
-            # Create meaningful depth gap opportunities
-            for url, word_count in list(thin_content.items())[:3]:  # Top 3 opportunities
-                original_topic = url_topics.get(url, "")
-                
-                # Extract meaningful topic from the heading
-                meaningful_topic = self._extract_meaningful_topic(original_topic, url)
-                
-                # Create actionable gap description
-                gap_text = f"Complete {meaningful_topic} Guide (current best: {word_count} words)"
-                gap_embedding = self.embedding_model.encode([gap_text])[0]
-                
-                depth_gaps.append(TopicData(
-                    text=gap_text,
-                    embedding=gap_embedding,
-                    source='depth_gap',
-                    source_url=url,
-                    competitor_id=-1,
-                    confidence=0.8,
-                    word_count=word_count
-                ))
-        
-        return depth_gaps
-    
-    def _extract_meaningful_topic(self, heading: str, url: str) -> str:
-        """Extract a clear, actionable topic from heading or URL"""
-        
-        # Clean the heading first
-        cleaned_heading = heading.strip()
-        
-        # Remove common prefixes
-        prefixes_to_remove = ['r/', 'complete guide:', 'ultimate guide:', 'best', 'top', 'how to']
-        for prefix in prefixes_to_remove:
-            if cleaned_heading.lower().startswith(prefix.lower()):
-                cleaned_heading = cleaned_heading[len(prefix):].strip()
-        
-        # If heading is still unclear, extract from URL
-        if (len(cleaned_heading.split()) < 2 or 
-            cleaned_heading.lower() in ['seedboxes', 'home', 'main', 'index']):
-            
-            # Extract meaningful part from URL
-            domain = url.split('/')[2].replace('www.', '')
-            
-            # Common URL patterns to extract topics
-            url_lower = url.lower()
-            
-            if 'seedbox' in url_lower:
-                if 'setup' in url_lower or 'guide' in url_lower:
-                    return "Seedbox Setup"
-                elif 'review' in url_lower or 'comparison' in url_lower:
-                    return "Seedbox Reviews and Comparisons"
-                elif 'plex' in url_lower:
-                    return "Seedbox for Plex Setup"
-                elif 'vpn' in url_lower:
-                    return "Seedbox VPN Configuration"
-                else:
-                    return "Seedbox Guide"
-            
-            elif 'plex' in url_lower:
-                if 'server' in url_lower:
-                    return "Plex Media Server Setup"
-                elif 'seedbox' in url_lower:
-                    return "Plex with Seedbox Integration"
-                else:
-                    return "Plex Configuration"
-            
-            elif 'vpn' in url_lower:
-                return "VPN Setup and Configuration"
-            
-            # Fallback to domain-based topic
-            if 'seedbox' in domain:
-                return "Seedbox Solutions"
-            elif 'plex' in domain:
-                return "Plex Media Solutions"
-            else:
-                return f"{domain.split('.')[0].title()} Guide"
-        
-        # Clean up the heading further
-        # Capitalize properly
-        words = cleaned_heading.split()
-        if len(words) > 0:
-            # Make it title case but keep important words capitalized
-            important_words = ['seedbox', 'plex', 'vpn', 'api', 'ssl', 'ssh', 'ftp']
-            result_words = []
-            
-            for word in words:
-                if word.lower() in important_words:
-                    result_words.append(word.upper())
-                else:
-                    result_words.append(word.capitalize())
-            
-            return ' '.join(result_words)
-        
-        return cleaned_heading.title() if cleaned_heading else "Content Topic"
-    
-    def find_content_gaps(self, competitor_topics: List[TopicData], 
-                         reddit_topics: List[TopicData],
-                         search_topics: List[TopicData],
-                         depth_gaps: List[TopicData]) -> List[TopicData]:
-        """Find real content gaps with more aggressive detection"""
-        all_user_topics = reddit_topics + search_topics + depth_gaps
-        gaps = []
-        
-        if not all_user_topics:
-            return gaps
-        
-        if not competitor_topics:
-            # If no competitor data, everything is a gap
-            return all_user_topics
-        
-        competitor_embeddings = np.array([t.embedding for t in competitor_topics])
-        
-        # More aggressive gap detection
-        for user_topic in all_user_topics:
-            # Check if competitors cover this topic
-            similarities = cosine_similarity([user_topic.embedding], competitor_embeddings)[0]
-            max_similarity = np.max(similarities) if len(similarities) > 0 else 0
-            
-            # Lower threshold for gap detection (was 0.7, now 0.6)
-            # This means if similarity < 60%, it's considered a gap
-            if max_similarity < 0.6:
-                gaps.append(user_topic)
-            
-            # Also check for partial coverage gaps
-            # If similarity is 0.6-0.75, it might still be worth targeting
-            elif 0.6 <= max_similarity < 0.75:
-                # Check if it's a high-value topic (search suggestion or highly upvoted)
-                if (user_topic.source == 'search_suggest' or 
-                    (user_topic.source == 'reddit' and user_topic.upvotes > 20) or
-                    user_topic.source == 'depth_gap'):
-                    
-                    # Mark as partial gap - still worth targeting
-                    user_topic.confidence = user_topic.confidence * 0.8  # Reduce confidence slightly
-                    gaps.append(user_topic)
-        
-        # Add some semantic gap detection
-        # Look for topics that are semantically different from all competitor content
-        if competitor_topics and all_user_topics:
-            semantic_gaps = self._find_semantic_gaps(competitor_topics, all_user_topics)
-            gaps.extend(semantic_gaps)
-        
-        # Sort by confidence and engagement
-        gaps.sort(key=lambda x: (x.confidence, x.upvotes), reverse=True)
-        return gaps
-    
-    def _find_semantic_gaps(self, competitor_topics: List[TopicData], 
-                           user_topics: List[TopicData]) -> List[TopicData]:
-        """Find semantic gaps using clustering"""
-        semantic_gaps = []
-        
-        # Find topics that are semantically isolated from competitor content
-        for user_topic in user_topics:
-            competitor_distances = []
-            
-            for comp_topic in competitor_topics:
-                # Calculate semantic distance
-                similarity = cosine_similarity([user_topic.embedding], [comp_topic.embedding])[0][0]
-                distance = 1 - similarity
-                competitor_distances.append(distance)
-            
-            # If this topic is semantically distant from ALL competitor topics
-            min_distance = min(competitor_distances) if competitor_distances else 1.0
-            
-            if min_distance > 0.4:  # Semantically isolated
-                # Create a semantic gap entry
-                gap_text = f"Semantic gap: {user_topic.text}"
-                
-                semantic_gap = TopicData(
-                    text=gap_text,
-                    embedding=user_topic.embedding,
-                    source=f'semantic_{user_topic.source}',
-                    source_url=user_topic.source_url,
-                    competitor_id=-1,
-                    confidence=0.7,
-                    upvotes=user_topic.upvotes,
-                    word_count=user_topic.word_count
-                )
-                
-                semantic_gaps.append(semantic_gap)
-        
-    def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
-        """Analyze entire website to find irrelevant content using vector embeddings"""
-        st.info(f"🔍 Analyzing {website_url} for topic relevance...")
-        
-        try:
-            # Get all pages from the website
-            pages_data = self._crawl_entire_website(website_url, max_pages)
-            
-            if not pages_data:
-                return {"error": "Could not crawl website pages"}
-            
-            # Batch process embeddings for efficiency
-            st.info(f"🧠 Processing {len(pages_data)} pages with AI...")
-            target_embedding = self.embedding_model.encode([target_topic])[0]
-            
-            # Process pages in batches to avoid memory issues
-            batch_size = 50
-            relevance_results = []
-            
-            progress_bar = st.progress(0)
-            
-            for i in range(0, len(pages_data), batch_size):
-                batch = pages_data[i:i + batch_size]
-                batch_texts = [page['content'] for page in batch]
-                
-                # Process batch embeddings
-                batch_embeddings = self.embedding_model.encode(batch_texts, show_progress_bar=False)
-                
-                for j, page in enumerate(batch):
-                    # Calculate similarity to target topic
-                    similarity = cosine_similarity([target_embedding], [batch_embeddings[j]])[0][0]
-                    
-                    relevance_results.append({
-                        'url': page['url'],
-                        'title': page['title'],
-                        'word_count': page['word_count'],
-                        'similarity_score': similarity,
-                        'relevance_status': self._categorize_relevance(similarity),
-                        'content_preview': page['content'][:200] + "...",
-                        'main_topics': self._extract_main_topics(page['content'])
-                    })
-                
-                # Update progress
-                progress = min((i + batch_size) / len(pages_data), 1.0)
-                progress_bar.progress(progress)
-            
-            # Sort by least relevant first (lowest similarity)
-            relevance_results.sort(key=lambda x: x['similarity_score'])
-            
-            return {
-                'target_topic': target_topic,
-                'total_pages': len(relevance_results),
-                'irrelevant_pages': len([r for r in relevance_results if r['relevance_status'] == 'Irrelevant']),
-                'somewhat_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Somewhat Relevant']),
-                'highly_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Highly Relevant']),
-                'pages': relevance_results
-            }
-            
-        except Exception as e:
-            return {"error": f"Error analyzing website: {str(e)}"}
-    
-    def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
-        """Advanced website crawler with safety limits and better handling"""
-        pages_data = []
-        visited_urls = set()
-        urls_to_visit = [base_url]
-        
-        # Get base domain for staying on same site
-        from urllib.parse import urljoin, urlparse, parse_qs
-        base_domain = urlparse(base_url).netloc
-        
-        # Try to find sitemap first for faster discovery
-        sitemap_urls = self._discover_sitemap_urls(base_url)
-        if sitemap_urls:
-            st.info(f"📋 Found sitemap with {len(sitemap_urls)} URLs")
-            urls_to_visit.extend(sitemap_urls)
-        
-        # Remove duplicates
-        urls_to_visit = list(dict.fromkeys(urls_to_visit))
-        
-        # Apply safety limits
-        if max_pages:
-            urls_to_visit = urls_to_visit[:max_pages]
-            st.info(f"🔍 Analyzing up to {max_pages} pages (user limit)")
-        else:
-            # Safety limit for unlimited crawling
-            if len(urls_to_visit) > 1000:
-                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 1000 pages for performance.")
-                urls_to_visit = urls_to_visit[:1000]
-            st.info(f"🔍 Analyzing website ({len(urls_to_visit)} URLs discovered)")
-        
-        progress_bar = st.progress(0)
-        status_text = st.empty()
-        
-        total_to_process = len(urls_to_visit)
-        successful_crawls = 0
-        errors = 0
-        
-        for i, current_url in enumerate(urls_to_visit):
-            if current_url in visited_urls:
-                continue
-                
-            visited_urls.add(current_url)
-            status_text.text(f"Crawling {i+1}/{total_to_process}: {current_url.split('/')[-1][:50]}...")
-            
-            # Fix progress calculation
-            progress_value = min((i + 1) / max(total_to_process, 1), 1.0)
-            progress_bar.progress(progress_value)
-            
-            try:
-                # Skip certain file types
-                if any(current_url.lower().endswith(ext) for ext in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.xml', '.txt']):
-                    continue
-                
-                response = requests.get(current_url, headers=self.headers, timeout=20)
-                response.raise_for_status()
-                
-                # Skip non-HTML content
-                content_type = response.headers.get('content-type', '').lower()
-                if 'text/html' not in content_type:
-                    continue
                 
                 soup = BeautifulSoup(response.content, 'html.parser')
                 
@@ -1252,7 +876,7 @@ class DataDrivenSEOAnalyzer:
                            competitor_urls: List[str]):
         """Create 3D visualization"""
         all_topics = competitor_topics + all_user_topics
-        if not all_topics:
+        if not all_topics or not self.embedding_model:
             return None
             
         embeddings = np.array([topic.embedding for topic in all_topics])
@@ -1702,6 +1326,12 @@ def main():
         if analyze_btn:
             try:
                 analyzer = DataDrivenSEOAnalyzer(serper_key, reddit_id, reddit_secret)
+                
+                # Check if embedding model loaded successfully
+                if not analyzer.embedding_model:
+                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
+                    return
+                
                 results = analyzer.run_analysis(keyword, num_competitors)
                 fig, gaps, competitor_topics, competitor_urls, reddit_topics, search_topics, depth_gaps, actionable_topics = results
                 
@@ -1777,6 +1407,12 @@ def main():
         if analyze_btn:
             try:
                 analyzer = DataDrivenSEOAnalyzer(serper_key or "dummy", "", "")  # Dummy key for website analysis
+                
+                # Check if embedding model loaded successfully
+                if not analyzer.embedding_model:
+                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
+                    return
+                
                 relevance_data = analyzer.analyze_website_relevance(website_url, target_topic, max_pages)
                 
                 if 'error' in relevance_data:
@@ -1890,3 +1526,397 @@ def main():
 
 if __name__ == "__main__":
     main()
+                
+                # Remove noise
+                for element in soup(["script", "style", "nav", "footer", "header", "aside"]):
+                    element.decompose()
+                
+                # Get main content
+                content = ""
+                content_selectors = ['article', 'main', '.content', '#content', '.post-content', '.entry-content']
+                
+                for selector in content_selectors:
+                    elements = soup.select(selector)
+                    if elements:
+                        content = ' '.join([elem.get_text() for elem in elements])
+                        break
+                
+                if not content:
+                    body = soup.find('body')
+                    content = body.get_text() if body else ""
+                
+                content = re.sub(r'\s+', ' ', content).strip()
+                
+                # Calculate total article word count
+                try:
+                    total_words = len([w for w in word_tokenize(content.lower()) 
+                                     if w.isalpha() and w not in self.stop_words])
+                except:
+                    # Fallback word count if NLTK fails
+                    total_words = len([w for w in content.lower().split() 
+                                     if w.isalpha() and w not in self.stop_words])
+                
+                if total_words > 100:
+                    # Extract headings for topic analysis
+                    headings = []
+                    for tag in ['h1', 'h2', 'h3']:
+                        for heading in soup.find_all(tag):
+                            heading_text = heading.get_text().strip()
+                            if 10 <= len(heading_text) <= 100:
+                                headings.append(heading_text)
+                    
+                    # Process headings as topics
+                    if headings:
+                        embeddings = self.embedding_model.encode(headings[:5])  # Top 5 headings
+                        
+                        for heading, embedding in zip(headings[:5], embeddings):
+                            all_topics.append(TopicData(
+                                text=heading,
+                                embedding=embedding,
+                                source='competitor',
+                                source_url=url,
+                                competitor_id=i,
+                                confidence=0.6,
+                                word_count=total_words  # Total article word count
+                            ))
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                st.warning(f"Error analyzing {url}: {str(e)}")
+                continue
+        
+        return all_topics
+    
+    def analyze_content_depth(self, competitor_topics: List[TopicData]) -> List[TopicData]:
+        """Find thin content opportunities with clear, actionable topics"""
+        depth_gaps = []
+        
+        if not competitor_topics or not self.embedding_model:
+            return depth_gaps
+        
+        # Group by URL to get article depths
+        url_depths = {}
+        url_topics = {}
+        
+        for topic in competitor_topics:
+            url = topic.source_url
+            if url not in url_depths:
+                url_depths[url] = topic.word_count
+                url_topics[url] = topic.text
+        
+        # Find thin content (less than 1500 words)
+        thin_content = {url: words for url, words in url_depths.items() if words < 1500}
+        
+        if thin_content:
+            # Create meaningful depth gap opportunities
+            for url, word_count in list(thin_content.items())[:3]:  # Top 3 opportunities
+                original_topic = url_topics.get(url, "")
+                
+                # Extract meaningful topic from the heading
+                meaningful_topic = self._extract_meaningful_topic(original_topic, url)
+                
+                # Create actionable gap description
+                gap_text = f"Complete {meaningful_topic} Guide (current best: {word_count} words)"
+                gap_embedding = self.embedding_model.encode([gap_text])[0]
+                
+                depth_gaps.append(TopicData(
+                    text=gap_text,
+                    embedding=gap_embedding,
+                    source='depth_gap',
+                    source_url=url,
+                    competitor_id=-1,
+                    confidence=0.8,
+                    word_count=word_count
+                ))
+        
+        return depth_gaps
+    
+    def _extract_meaningful_topic(self, heading: str, url: str) -> str:
+        """Extract a clear, actionable topic from heading or URL"""
+        
+        # Clean the heading first
+        cleaned_heading = heading.strip()
+        
+        # Remove common prefixes
+        prefixes_to_remove = ['r/', 'complete guide:', 'ultimate guide:', 'best', 'top', 'how to']
+        for prefix in prefixes_to_remove:
+            if cleaned_heading.lower().startswith(prefix.lower()):
+                cleaned_heading = cleaned_heading[len(prefix):].strip()
+        
+        # If heading is still unclear, extract from URL
+        if (len(cleaned_heading.split()) < 2 or 
+            cleaned_heading.lower() in ['seedboxes', 'home', 'main', 'index']):
+            
+            # Extract meaningful part from URL
+            domain = url.split('/')[2].replace('www.', '')
+            
+            # Common URL patterns to extract topics
+            url_lower = url.lower()
+            
+            if 'seedbox' in url_lower:
+                if 'setup' in url_lower or 'guide' in url_lower:
+                    return "Seedbox Setup"
+                elif 'review' in url_lower or 'comparison' in url_lower:
+                    return "Seedbox Reviews and Comparisons"
+                elif 'plex' in url_lower:
+                    return "Seedbox for Plex Setup"
+                elif 'vpn' in url_lower:
+                    return "Seedbox VPN Configuration"
+                else:
+                    return "Seedbox Guide"
+            
+            elif 'plex' in url_lower:
+                if 'server' in url_lower:
+                    return "Plex Media Server Setup"
+                elif 'seedbox' in url_lower:
+                    return "Plex with Seedbox Integration"
+                else:
+                    return "Plex Configuration"
+            
+            elif 'vpn' in url_lower:
+                return "VPN Setup and Configuration"
+            
+            # Fallback to domain-based topic
+            if 'seedbox' in domain:
+                return "Seedbox Solutions"
+            elif 'plex' in domain:
+                return "Plex Media Solutions"
+            else:
+                return f"{domain.split('.')[0].title()} Guide"
+        
+        # Clean up the heading further
+        # Capitalize properly
+        words = cleaned_heading.split()
+        if len(words) > 0:
+            # Make it title case but keep important words capitalized
+            important_words = ['seedbox', 'plex', 'vpn', 'api', 'ssl', 'ssh', 'ftp']
+            result_words = []
+            
+            for word in words:
+                if word.lower() in important_words:
+                    result_words.append(word.upper())
+                else:
+                    result_words.append(word.capitalize())
+            
+            return ' '.join(result_words)
+        
+        return cleaned_heading.title() if cleaned_heading else "Content Topic"
+    
+    def find_content_gaps(self, competitor_topics: List[TopicData], 
+                         reddit_topics: List[TopicData],
+                         search_topics: List[TopicData],
+                         depth_gaps: List[TopicData]) -> List[TopicData]:
+        """Find real content gaps with more aggressive detection"""
+        all_user_topics = reddit_topics + search_topics + depth_gaps
+        gaps = []
+        
+        if not all_user_topics:
+            return gaps
+        
+        if not competitor_topics:
+            # If no competitor data, everything is a gap
+            return all_user_topics
+        
+        competitor_embeddings = np.array([t.embedding for t in competitor_topics])
+        
+        # More aggressive gap detection
+        for user_topic in all_user_topics:
+            # Check if competitors cover this topic
+            similarities = cosine_similarity([user_topic.embedding], competitor_embeddings)[0]
+            max_similarity = np.max(similarities) if len(similarities) > 0 else 0
+            
+            # Lower threshold for gap detection (was 0.7, now 0.6)
+            # This means if similarity < 60%, it's considered a gap
+            if max_similarity < 0.6:
+                gaps.append(user_topic)
+            
+            # Also check for partial coverage gaps
+            # If similarity is 0.6-0.75, it might still be worth targeting
+            elif 0.6 <= max_similarity < 0.75:
+                # Check if it's a high-value topic (search suggestion or highly upvoted)
+                if (user_topic.source == 'search_suggest' or 
+                    (user_topic.source == 'reddit' and user_topic.upvotes > 20) or
+                    user_topic.source == 'depth_gap'):
+                    
+                    # Mark as partial gap - still worth targeting
+                    user_topic.confidence = user_topic.confidence * 0.8  # Reduce confidence slightly
+                    gaps.append(user_topic)
+        
+        # Add some semantic gap detection
+        # Look for topics that are semantically different from all competitor content
+        if competitor_topics and all_user_topics:
+            semantic_gaps = self._find_semantic_gaps(competitor_topics, all_user_topics)
+            if semantic_gaps:  # Only extend if semantic_gaps is not None/empty
+                gaps.extend(semantic_gaps)
+        
+        # Sort by confidence and engagement
+        gaps.sort(key=lambda x: (x.confidence, x.upvotes), reverse=True)
+        return gaps
+    
+    def _find_semantic_gaps(self, competitor_topics: List[TopicData], 
+                           user_topics: List[TopicData]) -> List[TopicData]:
+        """Find semantic gaps using clustering"""
+        semantic_gaps = []
+        
+        if not self.embedding_model:
+            return semantic_gaps
+        
+        # Find topics that are semantically isolated from competitor content
+        for user_topic in user_topics:
+            competitor_distances = []
+            
+            for comp_topic in competitor_topics:
+                # Calculate semantic distance
+                similarity = cosine_similarity([user_topic.embedding], [comp_topic.embedding])[0][0]
+                distance = 1 - similarity
+                competitor_distances.append(distance)
+            
+            # If this topic is semantically distant from ALL competitor topics
+            min_distance = min(competitor_distances) if competitor_distances else 1.0
+            
+            if min_distance > 0.4:  # Semantically isolated
+                # Create a semantic gap entry
+                gap_text = f"Semantic gap: {user_topic.text}"
+                
+                semantic_gap = TopicData(
+                    text=gap_text,
+                    embedding=user_topic.embedding,
+                    source=f'semantic_{user_topic.source}',
+                    source_url=user_topic.source_url,
+                    competitor_id=-1,
+                    confidence=0.7,
+                    upvotes=user_topic.upvotes,
+                    word_count=user_topic.word_count
+                )
+                
+                semantic_gaps.append(semantic_gap)
+        
+        return semantic_gaps  # Fixed: Added return statement
+    
+    def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
+        """Analyze entire website to find irrelevant content using vector embeddings"""
+        st.info(f"🔍 Analyzing {website_url} for topic relevance...")
+        
+        if not self.embedding_model:
+            return {"error": "Embedding model not loaded"}
+        
+        try:
+            # Get all pages from the website
+            pages_data = self._crawl_entire_website(website_url, max_pages)
+            
+            if not pages_data:
+                return {"error": "Could not crawl website pages"}
+            
+            # Batch process embeddings for efficiency
+            st.info(f"🧠 Processing {len(pages_data)} pages with AI...")
+            target_embedding = self.embedding_model.encode([target_topic])[0]
+            
+            # Process pages in batches to avoid memory issues
+            batch_size = 50
+            relevance_results = []
+            
+            progress_bar = st.progress(0)
+            
+            for i in range(0, len(pages_data), batch_size):
+                batch = pages_data[i:i + batch_size]
+                batch_texts = [page['content'] for page in batch]
+                
+                # Process batch embeddings
+                batch_embeddings = self.embedding_model.encode(batch_texts, show_progress_bar=False)
+                
+                for j, page in enumerate(batch):
+                    # Calculate similarity to target topic
+                    similarity = cosine_similarity([target_embedding], [batch_embeddings[j]])[0][0]
+                    
+                    relevance_results.append({
+                        'url': page['url'],
+                        'title': page['title'],
+                        'word_count': page['word_count'],
+                        'similarity_score': similarity,
+                        'relevance_status': self._categorize_relevance(similarity),
+                        'content_preview': page['content'][:200] + "...",
+                        'main_topics': self._extract_main_topics(page['content'])
+                    })
+                
+                # Update progress
+                progress = min((i + batch_size) / len(pages_data), 1.0)
+                progress_bar.progress(progress)
+            
+            # Sort by least relevant first (lowest similarity)
+            relevance_results.sort(key=lambda x: x['similarity_score'])
+            
+            return {
+                'target_topic': target_topic,
+                'total_pages': len(relevance_results),
+                'irrelevant_pages': len([r for r in relevance_results if r['relevance_status'] == 'Irrelevant']),
+                'somewhat_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Somewhat Relevant']),
+                'highly_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Highly Relevant']),
+                'pages': relevance_results
+            }
+            
+        except Exception as e:
+            return {"error": f"Error analyzing website: {str(e)}"}
+    
+    def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
+        """Advanced website crawler with safety limits and better handling"""
+        pages_data = []
+        visited_urls = set()
+        urls_to_visit = [base_url]
+        
+        # Get base domain for staying on same site
+        from urllib.parse import urljoin, urlparse, parse_qs
+        base_domain = urlparse(base_url).netloc
+        
+        # Try to find sitemap first for faster discovery
+        sitemap_urls = self._discover_sitemap_urls(base_url)
+        if sitemap_urls:
+            st.info(f"📋 Found sitemap with {len(sitemap_urls)} URLs")
+            urls_to_visit.extend(sitemap_urls)
+        
+        # Remove duplicates
+        urls_to_visit = list(dict.fromkeys(urls_to_visit))
+        
+        # Apply safety limits
+        if max_pages:
+            urls_to_visit = urls_to_visit[:max_pages]
+            st.info(f"🔍 Analyzing up to {max_pages} pages (user limit)")
+        else:
+            # Safety limit for unlimited crawling
+            if len(urls_to_visit) > 1000:
+                st.warning(f"⚠️ Large website detected ({len(urls_to_visit)} URLs). Limiting to 1000 pages for performance.")
+                urls_to_visit = urls_to_visit[:1000]
+            st.info(f"🔍 Analyzing website ({len(urls_to_visit)} URLs discovered)")
+        
+        progress_bar = st.progress(0)
+        status_text = st.empty()
+        
+        total_to_process = len(urls_to_visit)
+        successful_crawls = 0
+        errors = 0
+        
+        for i, current_url in enumerate(urls_to_visit):
+            if current_url in visited_urls:
+                continue
+                
+            visited_urls.add(current_url)
+            status_text.text(f"Crawling {i+1}/{total_to_process}: {current_url.split('/')[-1][:50]}...")
+            
+            # Fix progress calculation
+            progress_value = min((i + 1) / max(total_to_process, 1), 1.0)
+            progress_bar.progress(progress_value)
+            
+            try:
+                # Skip certain file types
+                if any(current_url.lower().endswith(ext) for ext in ['.pdf', '.jpg', '.jpeg', '.png', '.gif', '.zip', '.xml', '.txt']):
+                    continue
+                
+                response = requests.get(current_url, headers=self.headers, timeout=20)
+                response.raise_for_status()
+                
+                # Skip non-HTML content
+                content_type = response.headers.get('content-type', '').lower()
+                if 'text/html' not in content_type:
+                    continue
+                
+                soup = BeautifulSoup(response.content, 'html.parser')
