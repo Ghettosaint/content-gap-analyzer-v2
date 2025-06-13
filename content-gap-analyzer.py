@@ -106,7 +106,7 @@ class DataDrivenSEOAnalyzer:
                     user_agent="SEO_Analyzer_v2.0"
                 )
             except Exception as e:
-            return {"error": f"Error analyzing website: {str(e)}"}
+                return {"error": f"Error analyzing website: {str(e)}"}
     
     def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
         """Advanced website crawler with safety limits and better handling"""
