@@ -578,7 +578,7 @@ class DataDrivenSEOAnalyzer:
                            user_topics: List[TopicData]) -> List[TopicData]:
         """Find semantic gaps using clustering"""
         semantic_gaps = []
-        
+
         # Find topics that are semantically isolated from competitor content
         for user_topic in user_topics:
             competitor_distances = []
@@ -608,7 +608,9 @@ class DataDrivenSEOAnalyzer:
                 )
                 
                 semantic_gaps.append(semantic_gap)
-        
+
+            return semantic_gaps      # ← add this line (indent one level inside the method)
+
     def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
         """Analyze entire website to find irrelevant content using vector embeddings"""
         st.info(f"🔍 Analyzing {website_url} for topic relevance...")
