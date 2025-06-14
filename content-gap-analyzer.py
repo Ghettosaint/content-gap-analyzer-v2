@@ -573,43 +573,45 @@ class DataDrivenSEOAnalyzer:
         # Sort by confidence and engagement
         gaps.sort(key=lambda x: (x.confidence, x.upvotes), reverse=True)
         return gaps
-    
-    def _find_semantic_gaps(self, competitor_topics: List[TopicData], 
-                           user_topics: List[TopicData]) -> List[TopicData]:
-        """Find semantic gaps using clustering"""
-        semantic_gaps = []
 
-        # Find topics that are semantically isolated from competitor content
-        for user_topic in user_topics:
-            competitor_distances = []
-            
-            for comp_topic in competitor_topics:
-                # Calculate semantic distance
-                similarity = cosine_similarity([user_topic.embedding], [comp_topic.embedding])[0][0]
-                distance = 1 - similarity
-                competitor_distances.append(distance)
-            
-            # If this topic is semantically distant from ALL competitor topics
-            min_distance = min(competitor_distances) if competitor_distances else 1.0
-            
-            if min_distance > 0.4:  # Semantically isolated
-                # Create a semantic gap entry
-                gap_text = f"Semantic gap: {user_topic.text}"
-                
-                semantic_gap = TopicData(
-                    text=gap_text,
-                    embedding=user_topic.embedding,
-                    source=f'semantic_{user_topic.source}',
-                    source_url=user_topic.source_url,
-                    competitor_id=-1,
-                    confidence=0.7,
-                    upvotes=user_topic.upvotes,
-                    word_count=user_topic.word_count
+    def _find_semantic_gaps(
+        self,
+        competitor_topics: List[TopicData],
+        user_topics: List[TopicData]
+) -> List[TopicData]:
+    """Find semantic gaps using clustering"""
+    semantic_gaps = []
+
+    # Find topics that are semantically isolated from competitor content
+    for user_topic in user_topics:
+        competitor_distances = []
+
+        for comp_topic in competitor_topics:
+            similarity = cosine_similarity(
+                [user_topic.embedding],
+                [comp_topic.embedding]
+            )[0][0]
+            distance = 1 - similarity
+            competitor_distances.append(distance)
+
+        # If this topic is semantically distant from ALL competitor topics
+        if competitor_distances:          # avoid min() on empty list
+            min_distance = min(competitor_distances)
+            if min_distance > 0.4:
+                semantic_gaps.append(
+                    TopicData(
+                        text=f"Semantic gap: {user_topic.text}",
+                        embedding=user_topic.embedding,
+                        source=f"semantic_{user_topic.source}",
+                        source_url=user_topic.source_url,
+                        competitor_id=-1,
+                        confidence=0.7,
+                        upvotes=user_topic.upvotes,
+                        word_count=user_topic.word_count,
+                    )
                 )
-                
-                semantic_gaps.append(semantic_gap)
 
-            return semantic_gaps      # ← add this line (indent one level inside the method)
+    return semantic_gaps   # ← exactly 8 spaces (one indent level), not 12
 
     def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
         """Analyze entire website to find irrelevant content using vector embeddings"""
