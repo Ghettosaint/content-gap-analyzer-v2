@@ -1647,8 +1647,8 @@ def main():
         st.markdown("""
         <div style='text-align: center; color: #666; font-size: 12px;'>
             Made with ❤️ by<br>
-            <a href='https://tororank.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
-                TORO RANK
+            <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
+                Your Company Name
             </a>
         </div>
         """, unsafe_allow_html=True)
