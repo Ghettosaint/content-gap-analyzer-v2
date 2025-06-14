@@ -1,4 +1,423 @@
-#!/usr/bin/env python3
+return {"error": f"Error analyzing website: {str(e)}"}
+
+# Streamlit App
+def main():
+    st.set_page_config(
+        page_title="Data-Driven SEO Analyzer", 
+        page_icon="🎯",
+        layout="wide",
+        initial_sidebar_state="expanded"
+    )
+    
+    # Header with logo and branding
+    col1, col2, col3 = st.columns([1, 2, 1])
+    
+    with col1:
+        # Add your logo here - you'll need to upload logo.png to your repo
+        try:
+            st.image("logo.png", width=120)
+        except:
+            st.write("🎯")  # Fallback emoji if no logo
+    
+    with col2:
+        st.title("🚀 Data-Driven Vector SEO Analyzer")
+        st.markdown("**Find content gaps using REAL user data!**")
+    
+    with col3:
+        # Your website link
+        st.markdown("""
+        <div style='text-align: right; padding-top: 20px;'>
+            <a href='https://yourwebsite.com' target='_blank' style='
+                color: #ff4b4b; 
+                text-decoration: none; 
+                font-weight: bold;
+                border: 2px solid #ff4b4b;
+                padding: 8px 16px;
+                border-radius: 6px;
+                transition: all 0.3s;
+            '>Visit Our Website</a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Add custom CSS for better styling
+    st.markdown("""
+    <style>
+    .main > div {
+        padding-top: 1rem;
+    }
+    
+    .stApp > header {
+        background-color: transparent;
+    }
+    
+    .css-1d391kg {
+        padding-top: 1rem;
+    }
+    
+    /* Custom button styling */
+    div.stButton > button {
+        background: linear-gradient(45deg, #ff4b4b, #ff6b6b);
+        color: white;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1rem;
+        font-weight: bold;
+        transition: all 0.3s;
+    }
+    
+    div.stButton > button:hover {
+        background: linear-gradient(45deg, #ff3b3b, #ff5b5b);
+        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(255, 75, 75, 0.3);
+    }
+    
+    /* Sidebar styling */
+    .css-1d391kg {
+        background-color: #f8f9fa;
+    }
+    
+    /* Footer */
+    .footer {
+        position: fixed;
+        left: 0;
+        bottom: 0;
+        width: 100%;
+        background-color: #0e1117;
+        color: white;
+        text-align: center;
+        padding: 10px;
+        font-size: 12px;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+    
+    # Sidebar
+    with st.sidebar:
+        st.header("⚙️ Configuration")
+        
+        # Tool selection
+        analysis_mode = st.radio(
+            "Choose Analysis Type:",
+            ["🔍 Find Content Gaps", "🎯 Check Website Relevance"],
+            help="Find gaps in competitor content OR analyze your website for off-topic content"
+        )
+        
+        serper_key = st.text_input(
+            "Serper API Key", 
+            type="password",
+            help="Get free key from serper.dev"
+        )
+        
+        if analysis_mode == "🔍 Find Content Gaps":
+            st.markdown("**Optional: Reddit API**")
+            reddit_id = st.text_input("Reddit Client ID", type="password")
+            reddit_secret = st.text_input("Reddit Client Secret", type="password")
+            
+            keyword = st.text_input("Target Keyword", placeholder="e.g., best seedbox")
+            num_competitors = st.slider("Competitors", 3, 12, 8)
+            
+            analyze_btn = st.button("🎯 Find Content Gaps", type="primary")
+            
+        else:  # Website Relevance Analysis
+            website_url = st.text_input(
+                "Website URL", 
+                placeholder="https://yourwebsite.com",
+                help="Enter the website URL to analyze for content relevance"
+            )
+            target_topic = st.text_input(
+                "Main Topic/Niche", 
+                placeholder="e.g., digital marketing, web development, fitness",
+                help="What should your website be about? We'll find content that doesn't match."
+            )
+            
+            # Advanced options
+            with st.expander("⚙️ Advanced Crawl Settings"):
+                crawl_mode = st.radio(
+                    "Crawling Mode:",
+                    ["🌐 Entire Website (Recommended)", "📊 Limited Crawl"],
+                    help="Entire website uses sitemaps and intelligent crawling. Limited crawl stops at a specific number."
+                )
+                
+                if crawl_mode == "📊 Limited Crawl":
+                    max_pages = st.slider("Max Pages to Analyze", 10, 1000, 200)
+                else:
+                    max_pages = None
+                    st.info("✅ Will analyze up to 1000 pages (performance limit) using sitemaps and intelligent crawling")
+                
+                # Performance warning
+                st.warning("⚠️ **Performance Notice**: Large websites (1000+ pages) may take 30-60 minutes to analyze. Consider using Limited Crawl for faster results.")
+                
+                st.markdown("""
+                **Crawling Strategy:**
+                - 🗺️ **Sitemap Discovery**: Automatically finds and parses XML sitemaps
+                - 🔗 **Link Following**: Discovers pages through internal links (if no sitemap)
+                - 🚫 **Smart Filtering**: Skips images, PDFs, and duplicate content
+                - ⚡ **Batch Processing**: Efficiently handles large websites
+                - 🛡️ **Safety Limits**: Auto-stops at 500 pages for performance
+                """)
+            
+            analyze_btn = st.button("🎯 Analyze Website Relevance", type="primary")
+        
+        # Sidebar footer with your branding
+        st.markdown("---")
+        st.markdown("""
+        <div style='text-align: center; color: #666; font-size: 12px;'>
+            Made with ❤️ by<br>
+            <a href='https://tororank.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
+                TORO RANK
+            </a>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Info
+    with st.expander("ℹ️ What makes this different?"):
+        if analysis_mode == "🔍 Find Content Gaps":
+            st.markdown("""
+            **Real data sources:**
+            - 🔍 **Search Suggestions**: Google Autocomplete data
+            - 💬 **Reddit Mining**: Real user questions  
+            - 📊 **Content Depth**: Competitor weaknesses
+            - 🎯 **Vector Analysis**: AI finds missed topics
+            
+            **Why it works:**
+            - Uses actual user behavior data, not guesses
+            - AI-powered semantic analysis finds hidden gaps
+            - Actionable recommendations with difficulty scores
+            """)
+        else:
+            st.markdown("""
+            **Website Relevance Analysis:**
+            - 🕷️ **Website Crawling**: Analyzes your ENTIRE website intelligently
+            - 🎯 **Vector Similarity**: AI compares content to your main topic
+            - 📊 **Relevance Scoring**: Identifies off-topic content
+            - 🔍 **Topic Extraction**: Shows what each page is actually about
+            
+            **Advanced Crawling:**
+            - 🗺️ **Sitemap Discovery**: Finds and parses XML sitemaps automatically
+            - 🔗 **Intelligent Link Following**: Discovers all internal pages
+            - 📈 **Scales to Any Size**: Handles websites with 1000+ pages
+            - ⚡ **Batch Processing**: Efficient AI analysis
+            
+            **Why it's useful:**
+            - Find content that hurts your SEO focus
+            - Identify pages to remove or redirect
+            - Maintain topical authority
+            - Clean up content strategy
+            """)
+    
+    # Handle different analysis modes
+    if analysis_mode == "🔍 Find Content Gaps":
+        if not serper_key:
+            st.info("👈 Enter Serper API key to start")
+            return
+        
+        if not keyword:
+            st.info("👈 Enter a keyword to analyze")
+            return
+        
+        if analyze_btn:
+            try:
+                analyzer = DataDrivenSEOAnalyzer(serper_key, reddit_id, reddit_secret)
+                
+                # Check if embedding model loaded successfully
+                if not analyzer.embedding_model:
+                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
+                    return
+                
+                results = analyzer.run_analysis(keyword, num_competitors)
+                fig, gaps, competitor_topics, competitor_urls, reddit_topics, search_topics, depth_gaps, actionable_topics = results
+                
+                # Display results
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    if fig:
+                        # Display the chart with selection capability
+                        event = st.plotly_chart(fig, use_container_width=True, key="main_chart")
+                        
+                        # Check for clicked points
+                        if st.session_state.get('clicked_point'):
+                            st.subheader("🎯 Selected Point Details")
+                            point_data = st.session_state.clicked_point
+                            
+                            st.write(f"**Type:** {point_data.get('trace_name', 'Unknown')}")
+                            st.write(f"**Topic:** {point_data.get('text', 'N/A')}")
+                            
+                            if point_data.get('url'):
+                                st.write(f"**URL:** [{point_data['url']}]({point_data['url']})")
+                                st.code(point_data['url'], language=None)
+                            
+                            if st.button("Clear Selection"):
+                                del st.session_state.clicked_point
+                                st.rerun()
+                        
+                        # Instructions for users
+                        st.info("💡 **Tip:** Click on legend items to show/hide data types. Use the legend toggle functionality to focus on specific data sources!")
+                        
+                    else:
+                        st.error("No data found for visualization")
+                
+                with col2:
+                    st.subheader("🎯 Actionable Content Ideas")
+                    
+                    for i, topic in enumerate(actionable_topics[:8], 1):
+                        with st.expander(f"#{i} {topic['title'][:50]}... (Score: {topic['opportunity_score']:.0f})"):
+                            st.write(f"**📝 Topic:** {topic['title']}")
+                            st.write(f"**🎯 Difficulty:** {topic['difficulty']}")
+                            st.write(f"**💡 Why gap:** {topic['why_gap']}")
+                            st.write(f"**📋 Angle:** {topic['content_angle']}")
+                            
+                            if topic['source'] == 'reddit' and topic['upvotes'] > 0:
+                                st.write(f"**👍 Engagement:** {topic['upvotes']} upvotes")
+                            
+                            st.caption(f"Source: {topic['source'].replace('_', ' ').title()}")
+                    
+                    st.subheader("📊 Data Sources")
+                    st.metric("Reddit Questions", len(reddit_topics))
+                    st.metric("Search Suggestions", len(search_topics))
+                    st.metric("Thin Content Gaps", len(depth_gaps))
+                    st.metric("Total Opportunities", len(actionable_topics))
+                    
+                    st.subheader("🏢 Competitors Analyzed")
+                    for i, url in enumerate(competitor_urls, 1):
+                        domain = url.split('/')[2].replace('www.', '')
+                        st.write(f"**{i}.** [{domain}]({url})")
+            
+            except Exception as e:
+                st.error(f"Error during analysis: {str(e)}")
+                st.exception(e)
+    
+    else:  # Website Relevance Analysis
+        if not website_url:
+            st.info("👈 Enter a website URL to analyze")
+            return
+        
+        if not target_topic:
+            st.info("👈 Enter your main topic/niche")
+            return
+        
+        if analyze_btn:
+            try:
+                analyzer = DataDrivenSEOAnalyzer(serper_key or "dummy", "", "")  # Dummy key for website analysis
+                
+                # Check if embedding model loaded successfully
+                if not analyzer.embedding_model:
+                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
+                    return
+                
+                relevance_data = analyzer.analyze_website_relevance(website_url, target_topic, max_pages)
+                
+                if 'error' in relevance_data:
+                    st.error(relevance_data['error'])
+                    return
+                
+                # Display results
+                col1, col2 = st.columns([2, 1])
+                
+                with col1:
+                    st.subheader(f"🎯 Website Relevance Analysis")
+                    
+                    # Create and display visualization
+                    fig = analyzer.create_relevance_visualization(relevance_data)
+                    if fig:
+                        st.plotly_chart(fig, use_container_width=True)
+                    
+                    # Show detailed results
+                    st.subheader("📄 Page-by-Page Analysis")
+                    
+                    # Filter options
+                    show_filter = st.selectbox(
+                        "Show pages:",
+                        ["All Pages", "Irrelevant Only", "Somewhat Relevant", "Highly Relevant"]
+                    )
+                    
+                    filtered_pages = relevance_data['pages']
+                    if show_filter != "All Pages":
+                        filtered_pages = [p for p in relevance_data['pages'] 
+                                        if p['relevance_status'] == show_filter.replace(" Only", "")]
+                    
+                    for i, page in enumerate(filtered_pages, 1):
+                        status_emoji = {"Irrelevant": "🔴", "Somewhat Relevant": "🟡", "Highly Relevant": "🟢"}
+                        emoji = status_emoji.get(page['relevance_status'], "⚪")
+                        
+                        with st.expander(f"{emoji} {page['title'][:60]}... (Similarity: {page['similarity_score']:.1%})"):
+                            st.write(f"**📊 Relevance:** {page['relevance_status']} ({page['similarity_score']:.1%} similar)")
+                            
+                            # Show boost if applied
+                            if 'original_similarity' in page and page['original_similarity'] != page['similarity_score']:
+                                st.write(f"**🚀 AI Boost:** Original: {page['original_similarity']:.1%} → Boosted: {page['similarity_score']:.1%}")
+                            
+                            st.write(f"**🌍 Language:** {page.get('language', 'Unknown')}")
+                            st.write(f"**📄 Word Count:** {page['word_count']} words")
+                            st.write(f"**🔗 URL:** [{page['url']}]({page['url']})")
+                            st.write(f"**🏷️ Main Topics:** {', '.join(page['main_topics'])}")
+                            st.write(f"**📝 Preview:** {page['content_preview']}")
+                            
+                            if page['relevance_status'] == 'Irrelevant':
+                                st.warning("💡 **Recommendation:** Consider removing, redirecting, or rewriting this page to match your main topic.")
+                            elif page['relevance_status'] == 'Somewhat Relevant':
+                                st.info("💡 **Recommendation:** Consider optimizing this page to better align with your main topic.")
+                
+                with col2:
+                    st.subheader("📊 Summary")
+                    
+                    total_pages = relevance_data['total_pages']
+                    irrelevant = relevance_data['irrelevant_pages']
+                    somewhat = relevance_data['somewhat_relevant']
+                    relevant = relevance_data['highly_relevant']
+                    
+                    st.metric("Total Pages Analyzed", total_pages)
+                    st.metric("🔴 Irrelevant Pages", f"{irrelevant} ({irrelevant/total_pages:.1%})")
+                    st.metric("🟡 Somewhat Relevant", f"{somewhat} ({somewhat/total_pages:.1%})")
+                    st.metric("🟢 Highly Relevant", f"{relevant} ({relevant/total_pages:.1%})")
+                    
+                    # Language breakdown
+                    if 'languages_detected' in relevance_data:
+                        st.subheader("🌍 Languages Detected")
+                        languages = relevance_data['languages_detected']
+                        for lang in languages:
+                            lang_pages = len([p for p in relevance_data['pages'] if p.get('language') == lang])
+                            st.write(f"**{lang}:** {lang_pages} pages")
+                    
+                    # Recommendations
+                    st.subheader("💡 Recommendations")
+                    
+                    if irrelevant > 0:
+                        st.warning(f"**{irrelevant} pages** are off-topic and may hurt your SEO focus.")
+                    
+                    if irrelevant > total_pages * 0.3:
+                        st.error("⚠️ **High Alert:** Over 30% of your content is irrelevant to your main topic!")
+                    elif irrelevant > total_pages * 0.1:
+                        st.warning("⚠️ **Warning:** Over 10% of your content is off-topic.")
+                    else:
+                        st.success("✅ **Good:** Most of your content stays on-topic!")
+                    
+                    st.markdown("**Action Items:**")
+                    if irrelevant > 0:
+                        st.write(f"- Remove or redirect {irrelevant} irrelevant pages")
+                    if somewhat > 0:
+                        st.write(f"- Optimize {somewhat} somewhat relevant pages")
+                    st.write(f"- Keep creating content like your {relevant} highly relevant pages")
+                    
+                    # Multilingual notice
+                    if len(relevance_data.get('languages_detected', [])) > 1:
+                        st.info("🌍 **Multilingual Site Detected**: The tool now handles multiple languages better. Non-English content is evaluated fairly.")
+            
+            except Exception as e:
+                st.error(f"Error during website analysis: {str(e)}")
+                st.exception(e)
+    
+    # Footer
+    st.markdown("""
+    <div class='footer'>
+        Powered by Data-Driven SEO Analysis | 
+        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
+        Built with Streamlit & AI
+    </div>
+    """, unsafe_allow_html=True)
+
+if __name__ == "__main__":
+    main()#!/usr/bin/env python3
 """
 Data-Driven Vector SEO Analyzer (Fixed Version)
 Uses REAL data instead of guesses:
@@ -106,7 +525,47 @@ class DataDrivenSEOAnalyzer:
                     user_agent="SEO_Analyzer_v2.0"
                 )
             except Exception as e:
-                    return {"error": f"Error analyzing website: {str(e)}"}
+                st.warning(f"Failed to initialize Reddit: {e}")
+        
+        # Initialize embedding model with caching
+        if 'embedding_model' not in st.session_state:
+            try:
+                # Comprehensive warning suppression
+                import warnings
+                import logging
+                
+                # Suppress all warnings temporarily
+                warnings.filterwarnings("ignore")
+                logging.getLogger().setLevel(logging.ERROR)
+                
+                # Temporarily redirect stderr
+                import sys
+                from io import StringIO
+                old_stderr = sys.stderr
+                sys.stderr = StringIO()
+                
+                try:
+                    st.session_state.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
+                finally:
+                    # Restore stderr
+                    sys.stderr = old_stderr
+                
+            except Exception as e:
+                st.error(f"Failed to load embedding model: {e}")
+                st.session_state.embedding_model = None
+        
+        self.embedding_model = st.session_state.embedding_model
+        
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+        
+        # Initialize stop words with fallback
+        try:
+            self.stop_words = set(stopwords.words('english'))
+        except:
+            # Fallback stopwords if NLTK fails
+            self.stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
     
     def _crawl_entire_website(self, base_url: str, max_pages: int = None) -> List[Dict]:
         """Advanced website crawler with safety limits and better handling"""
@@ -184,6 +643,374 @@ class DataDrivenSEOAnalyzer:
                 content = re.sub(r'\s+', ' ', content).strip()
                 
                 # Calculate word count
+                word_count = len([w for w in content.split() if w.isalpha()])
+                
+                if word_count > 50:  # Include pages with substantial content
+                    # Extract headings for topic analysis
+                    headings = []
+                    for tag in ['h1', 'h2', 'h3']:
+                        for heading in soup.find_all(tag):
+                            heading_text = heading.get_text().strip()
+                            if 10 <= len(heading_text) <= 100:
+                                headings.append(heading_text)
+                    
+                    # Process headings as topics
+                    if headings:
+                        embeddings = self.embedding_model.encode(headings[:5])  # Top 5 headings
+                        
+                        for heading, embedding in zip(headings[:5], embeddings):
+                            all_topics.append(TopicData(
+                                text=heading,
+                                embedding=embedding,
+                                source='competitor',
+                                source_url=url,
+                                competitor_id=i,
+                                confidence=0.6,
+                                word_count=word_count  # Total article word count
+                            ))
+                
+                time.sleep(1)
+                
+            except Exception as e:
+                st.warning(f"Error analyzing {url}: {str(e)}")
+                continue
+        
+        return all_topics
+    
+    def _extract_main_content(self, soup) -> str:
+        """Extract main content using multiple strategies"""
+        content = ""
+        
+        # Strategy 1: Look for main content selectors
+        content_selectors = [
+            'article', 'main', '[role="main"]', '.content', '#content', 
+            '.post-content', '.entry-content', '.page-content', '.article-content',
+            '.post', '.entry', '.article', '.blog-post'
+        ]
+        
+        for selector in content_selectors:
+            elements = soup.select(selector)
+            if elements:
+                content = ' '.join([elem.get_text() for elem in elements])
+                break
+        
+        # Strategy 2: If no main content found, use body but filter out common noise
+        if not content or len(content) < 100:
+            body = soup.find('body')
+            if body:
+                # Remove common navigation and sidebar elements
+                for noise in body.select('nav, .navigation, .sidebar, .menu, .footer, .header, .breadcrumb, .social, .share'):
+                    noise.decompose()
+                content = body.get_text()
+        
+        # Strategy 3: Fallback to all text
+        if not content:
+            content = soup.get_text()
+        
+        return content
+    
+    def analyze_content_depth(self, competitor_topics: List[TopicData]) -> List[TopicData]:
+        """Find thin content opportunities with clear, actionable topics"""
+        depth_gaps = []
+        
+        if not competitor_topics or not self.embedding_model:
+            return depth_gaps
+        
+        # Group by URL to get article depths
+        url_depths = {}
+        url_topics = {}
+        
+        for topic in competitor_topics:
+            url = topic.source_url
+            if url not in url_depths:
+                url_depths[url] = topic.word_count
+                url_topics[url] = topic.text
+        
+        # Find thin content (less than 1500 words)
+        thin_content = {url: words for url, words in url_depths.items() if words < 1500}
+        
+        if thin_content:
+            # Create meaningful depth gap opportunities
+            for url, word_count in list(thin_content.items())[:3]:  # Top 3 opportunities
+                original_topic = url_topics.get(url, "")
+                
+                # Extract meaningful topic from the heading
+                meaningful_topic = self._extract_meaningful_topic(original_topic, url)
+                
+                # Create actionable gap description
+                gap_text = f"Complete {meaningful_topic} Guide (current best: {word_count} words)"
+                gap_embedding = self.embedding_model.encode([gap_text])[0]
+                
+                depth_gaps.append(TopicData(
+                    text=gap_text,
+                    embedding=gap_embedding,
+                    source='depth_gap',
+                    source_url=url,
+                    competitor_id=-1,
+                    confidence=0.8,
+                    word_count=word_count
+                ))
+        
+        return depth_gaps
+    
+    def _extract_meaningful_topic(self, heading: str, url: str) -> str:
+        """Extract a clear, actionable topic from heading or URL"""
+        
+        # Clean the heading first
+        cleaned_heading = heading.strip()
+        
+        # Remove common prefixes
+        prefixes_to_remove = ['r/', 'complete guide:', 'ultimate guide:', 'best', 'top', 'how to']
+        for prefix in prefixes_to_remove:
+            if cleaned_heading.lower().startswith(prefix.lower()):
+                cleaned_heading = cleaned_heading[len(prefix):].strip()
+        
+        # If heading is still unclear, extract from URL
+        if (len(cleaned_heading.split()) < 2 or 
+            cleaned_heading.lower() in ['seedboxes', 'home', 'main', 'index']):
+            
+            # Extract meaningful part from URL
+            domain = url.split('/')[2].replace('www.', '')
+            
+            # Common URL patterns to extract topics
+            url_lower = url.lower()
+            
+            if 'seedbox' in url_lower:
+                if 'setup' in url_lower or 'guide' in url_lower:
+                    return "Seedbox Setup"
+                elif 'review' in url_lower or 'comparison' in url_lower:
+                    return "Seedbox Reviews and Comparisons"
+                elif 'plex' in url_lower:
+                    return "Seedbox for Plex Setup"
+                elif 'vpn' in url_lower:
+                    return "Seedbox VPN Configuration"
+                else:
+                    return "Seedbox Guide"
+            
+            elif 'plex' in url_lower:
+                if 'server' in url_lower:
+                    return "Plex Media Server Setup"
+                elif 'seedbox' in url_lower:
+                    return "Plex with Seedbox Integration"
+                else:
+                    return "Plex Configuration"
+            
+            elif 'vpn' in url_lower:
+                return "VPN Setup and Configuration"
+            
+            # Fallback to domain-based topic
+            if 'seedbox' in domain:
+                return "Seedbox Solutions"
+            elif 'plex' in domain:
+                return "Plex Media Solutions"
+            else:
+                return f"{domain.split('.')[0].title()} Guide"
+        
+        # Clean up the heading further
+        # Capitalize properly
+        words = cleaned_heading.split()
+        if len(words) > 0:
+            # Make it title case but keep important words capitalized
+            important_words = ['seedbox', 'plex', 'vpn', 'api', 'ssl', 'ssh', 'ftp']
+            result_words = []
+            
+            for word in words:
+                if word.lower() in important_words:
+                    result_words.append(word.upper())
+                else:
+                    result_words.append(word.capitalize())
+            
+            return ' '.join(result_words)
+        
+        return cleaned_heading.title() if cleaned_heading else "Content Topic"
+    
+    def find_content_gaps(self, competitor_topics: List[TopicData], 
+                         reddit_topics: List[TopicData],
+                         search_topics: List[TopicData],
+                         depth_gaps: List[TopicData]) -> List[TopicData]:
+        """Find real content gaps with more aggressive detection"""
+        all_user_topics = reddit_topics + search_topics + depth_gaps
+        gaps = []
+        
+        if not all_user_topics:
+            return gaps
+        
+        if not competitor_topics:
+            # If no competitor data, everything is a gap
+            return all_user_topics
+        
+        competitor_embeddings = np.array([t.embedding for t in competitor_topics])
+        
+        # More aggressive gap detection
+        for user_topic in all_user_topics:
+            # Check if competitors cover this topic
+            similarities = cosine_similarity([user_topic.embedding], competitor_embeddings)[0]
+            max_similarity = np.max(similarities) if len(similarities) > 0 else 0
+            
+            # Lower threshold for gap detection (was 0.7, now 0.6)
+            # This means if similarity < 60%, it's considered a gap
+            if max_similarity < 0.6:
+                gaps.append(user_topic)
+            
+            # Also check for partial coverage gaps
+            # If similarity is 0.6-0.75, it might still be worth targeting
+            elif 0.6 <= max_similarity < 0.75:
+                # Check if it's a high-value topic (search suggestion or highly upvoted)
+                if (user_topic.source == 'search_suggest' or 
+                    (user_topic.source == 'reddit' and user_topic.upvotes > 20) or
+                    user_topic.source == 'depth_gap'):
+                    
+                    # Mark as partial gap - still worth targeting
+                    user_topic.confidence = user_topic.confidence * 0.8  # Reduce confidence slightly
+                    gaps.append(user_topic)
+        
+        # Add some semantic gap detection
+        # Look for topics that are semantically different from all competitor content
+        if competitor_topics and all_user_topics:
+            semantic_gaps = self._find_semantic_gaps(competitor_topics, all_user_topics)
+            if semantic_gaps:  # Only extend if semantic_gaps is not None/empty
+                gaps.extend(semantic_gaps)
+        
+        # Sort by confidence and engagement
+        gaps.sort(key=lambda x: (x.confidence, x.upvotes), reverse=True)
+        return gaps
+    
+    def _find_semantic_gaps(self, competitor_topics: List[TopicData], 
+                           user_topics: List[TopicData]) -> List[TopicData]:
+        """Find semantic gaps using clustering"""
+        semantic_gaps = []
+        
+        if not self.embedding_model:
+            return semantic_gaps
+        
+        # Find topics that are semantically isolated from competitor content
+        for user_topic in user_topics:
+            competitor_distances = []
+            
+            for comp_topic in competitor_topics:
+                # Calculate semantic distance
+                similarity = cosine_similarity([user_topic.embedding], [comp_topic.embedding])[0][0]
+                distance = 1 - similarity
+                competitor_distances.append(distance)
+            
+            # If this topic is semantically distant from ALL competitor topics
+            min_distance = min(competitor_distances) if competitor_distances else 1.0
+            
+            if min_distance > 0.4:  # Semantically isolated
+                # Create a semantic gap entry
+                gap_text = f"Semantic gap: {user_topic.text}"
+                
+                semantic_gap = TopicData(
+                    text=gap_text,
+                    embedding=user_topic.embedding,
+                    source=f'semantic_{user_topic.source}',
+                    source_url=user_topic.source_url,
+                    competitor_id=-1,
+                    confidence=0.7,
+                    upvotes=user_topic.upvotes,
+                    word_count=user_topic.word_count
+                )
+                
+                semantic_gaps.append(semantic_gap)
+        
+        return semantic_gaps
+    
+    def _categorize_relevance(self, similarity_score: float) -> str:
+        """Categorize relevance based on similarity score with more lenient thresholds"""
+        if similarity_score >= 0.5:  # Lowered from 0.7
+            return "Highly Relevant"
+        elif similarity_score >= 0.25:  # Lowered from 0.4
+            return "Somewhat Relevant"
+        else:
+            return "Irrelevant"
+    
+    def _extract_main_topics(self, content: str) -> List[str]:
+        """Extract main topics from content using simple keyword extraction with fallback"""
+        try:
+            # Try NLTK tokenization first
+            words = word_tokenize(content.lower())
+        except:
+            # Fallback to simple split if NLTK fails
+            words = content.lower().split()
+        
+        # Remove stop words and get word frequency
+        try:
+            # Try using NLTK stopwords
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
+        except:
+            # Fallback stopwords if NLTK fails
+            basic_stopwords = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
+            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in basic_stopwords]
+        
+        word_freq = Counter(clean_words)
+        
+        # Get top 5 most frequent meaningful words
+        top_words = [word for word, freq in word_freq.most_common(5)]
+        return top_words
+    
+    def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
+        """Analyze entire website to find irrelevant content using vector embeddings"""
+        st.info(f"🔍 Analyzing {website_url} for topic relevance...")
+        
+        if not self.embedding_model:
+            return {"error": "Embedding model not loaded"}
+        
+        try:
+            # Get all pages from the website
+            pages_data = self._crawl_entire_website(website_url, max_pages)
+            
+            if not pages_data:
+                return {"error": "Could not crawl website pages"}
+            
+            # Batch process embeddings for efficiency
+            st.info(f"🧠 Processing {len(pages_data)} pages with AI...")
+            target_embedding = self.embedding_model.encode([target_topic])[0]
+            
+            # Process pages in batches to avoid memory issues
+            batch_size = 50
+            relevance_results = []
+            
+            progress_bar = st.progress(0)
+            
+            for i in range(0, len(pages_data), batch_size):
+                batch = pages_data[i:i + batch_size]
+                batch_texts = [page['content'] for page in batch]
+                
+                # Process batch embeddings
+                batch_embeddings = self.embedding_model.encode(batch_texts, show_progress_bar=False)
+                
+                for j, page in enumerate(batch):
+                    # Calculate similarity to target topic
+                    similarity = cosine_similarity([target_embedding], [batch_embeddings[j]])[0][0]
+                    
+                    relevance_results.append({
+                        'url': page['url'],
+                        'title': page['title'],
+                        'word_count': page['word_count'],
+                        'similarity_score': similarity,
+                        'relevance_status': self._categorize_relevance(similarity),
+                        'content_preview': page['content'][:200] + "...",
+                        'main_topics': self._extract_main_topics(page['content'])
+                    })
+                
+                # Update progress
+                progress = min((i + batch_size) / len(pages_data), 1.0)
+                progress_bar.progress(progress)
+            
+            # Sort by least relevant first (lowest similarity)
+            relevance_results.sort(key=lambda x: x['similarity_score'])
+            
+            return {
+                'target_topic': target_topic,
+                'total_pages': len(relevance_results),
+                'irrelevant_pages': len([r for r in relevance_results if r['relevance_status'] == 'Irrelevant']),
+                'somewhat_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Somewhat Relevant']),
+                'highly_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Highly Relevant']),
+                'pages': relevance_results
+            }
+            
+        except Exception as e:
+            return {"error": f"Error analyzing website: {str(e)}"} Calculate word count
                 word_count = len([w for w in content.split() if w.isalpha()])
                 
                 if word_count > 50:  # Include pages with substantial content
@@ -855,1049 +1682,3 @@ class DataDrivenSEOAnalyzer:
         status_text.text("✅ Analysis complete!")
         
         return fig, gaps, competitor_topics, competitor_urls, reddit_topics, search_topics, depth_gaps, actionable_topics
-
-# Streamlit App
-def main():
-    st.set_page_config(
-        page_title="Data-Driven SEO Analyzer", 
-        page_icon="🎯",
-        layout="wide",
-        initial_sidebar_state="expanded"
-    )
-    
-    # Header with logo and branding
-    col1, col2, col3 = st.columns([1, 2, 1])
-    
-    with col1:
-        # Add your logo here - you'll need to upload logo.png to your repo
-        try:
-            st.image("logo.png", width=120)
-        except:
-            st.write("🎯")  # Fallback emoji if no logo
-    
-    with col2:
-        st.title("🚀 Data-Driven Vector SEO Analyzer")
-        st.markdown("**Find content gaps using REAL user data!**")
-    
-    with col3:
-        # Your website link
-        st.markdown("""
-        <div style='text-align: right; padding-top: 20px;'>
-            <a href='https://yourwebsite.com' target='_blank' style='
-                color: #ff4b4b; 
-                text-decoration: none; 
-                font-weight: bold;
-                border: 2px solid #ff4b4b;
-                padding: 8px 16px;
-                border-radius: 6px;
-                transition: all 0.3s;
-            '>Visit Our Website</a>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Add custom CSS for better styling
-    st.markdown("""
-    <style>
-    .main > div {
-        padding-top: 1rem;
-    }
-    
-    .stApp > header {
-        background-color: transparent;
-    }
-    
-    .css-1d391kg {
-        padding-top: 1rem;
-    }
-    
-    /* Custom button styling */
-    div.stButton > button {
-        background: linear-gradient(45deg, #ff4b4b, #ff6b6b);
-        color: white;
-        border: none;
-        border-radius: 6px;
-        padding: 0.5rem 1rem;
-        font-weight: bold;
-        transition: all 0.3s;
-    }
-    
-    div.stButton > button:hover {
-        background: linear-gradient(45deg, #ff3b3b, #ff5b5b);
-        transform: translateY(-1px);
-        box-shadow: 0 4px 8px rgba(255, 75, 75, 0.3);
-    }
-    
-    /* Sidebar styling */
-    .css-1d391kg {
-        background-color: #f8f9fa;
-    }
-    
-    /* Footer */
-    .footer {
-        position: fixed;
-        left: 0;
-        bottom: 0;
-        width: 100%;
-        background-color: #0e1117;
-        color: white;
-        text-align: center;
-        padding: 10px;
-        font-size: 12px;
-    }
-    </style>
-    """, unsafe_allow_html=True)
-    
-    # Sidebar
-    with st.sidebar:
-        st.header("⚙️ Configuration")
-        
-        # Tool selection
-        analysis_mode = st.radio(
-            "Choose Analysis Type:",
-            ["🔍 Find Content Gaps", "🎯 Check Website Relevance"],
-            help="Find gaps in competitor content OR analyze your website for off-topic content"
-        )
-        
-        serper_key = st.text_input(
-            "Serper API Key", 
-            type="password",
-            help="Get free key from serper.dev"
-        )
-        
-        if analysis_mode == "🔍 Find Content Gaps":
-            st.markdown("**Optional: Reddit API**")
-            reddit_id = st.text_input("Reddit Client ID", type="password")
-            reddit_secret = st.text_input("Reddit Client Secret", type="password")
-            
-            keyword = st.text_input("Target Keyword", placeholder="e.g., best seedbox")
-            num_competitors = st.slider("Competitors", 3, 12, 8)
-            
-            analyze_btn = st.button("🎯 Find Content Gaps", type="primary")
-            
-        else:  # Website Relevance Analysis
-            website_url = st.text_input(
-                "Website URL", 
-                placeholder="https://yourwebsite.com",
-                help="Enter the website URL to analyze for content relevance"
-            )
-            target_topic = st.text_input(
-                "Main Topic/Niche", 
-                placeholder="e.g., digital marketing, web development, fitness",
-                help="What should your website be about? We'll find content that doesn't match."
-            )
-            
-            # Advanced options
-            with st.expander("⚙️ Advanced Crawl Settings"):
-                crawl_mode = st.radio(
-                    "Crawling Mode:",
-                    ["🌐 Entire Website (Recommended)", "📊 Limited Crawl"],
-                    help="Entire website uses sitemaps and intelligent crawling. Limited crawl stops at a specific number."
-                )
-                
-                if crawl_mode == "📊 Limited Crawl":
-                    max_pages = st.slider("Max Pages to Analyze", 10, 1000, 200)
-                else:
-                    max_pages = None
-                    st.info("✅ Will analyze up to 1000 pages (performance limit) using sitemaps and intelligent crawling")
-                
-                # Performance warning
-                st.warning("⚠️ **Performance Notice**: Large websites (1000+ pages) may take 30-60 minutes to analyze. Consider using Limited Crawl for faster results.")
-                
-                st.markdown("""
-                **Crawling Strategy:**
-                - 🗺️ **Sitemap Discovery**: Automatically finds and parses XML sitemaps
-                - 🔗 **Link Following**: Discovers pages through internal links (if no sitemap)
-                - 🚫 **Smart Filtering**: Skips images, PDFs, and duplicate content
-                - ⚡ **Batch Processing**: Efficiently handles large websites
-                - 🛡️ **Safety Limits**: Auto-stops at 500 pages for performance
-                """)
-            
-            analyze_btn = st.button("🎯 Analyze Website Relevance", type="primary")
-        
-        # Sidebar footer with your branding
-        st.markdown("---")
-        st.markdown("""
-        <div style='text-align: center; color: #666; font-size: 12px;'>
-            Made with ❤️ by<br>
-            <a href='https://tororank.com' target='_blank' style='color: #ff4b4b; text-decoration: none;'>
-                TORO RANK
-            </a>
-        </div>
-        """, unsafe_allow_html=True)
-    
-    # Info
-    with st.expander("ℹ️ What makes this different?"):
-        if analysis_mode == "🔍 Find Content Gaps":
-            st.markdown("""
-            **Real data sources:**
-            - 🔍 **Search Suggestions**: Google Autocomplete data
-            - 💬 **Reddit Mining**: Real user questions  
-            - 📊 **Content Depth**: Competitor weaknesses
-            - 🎯 **Vector Analysis**: AI finds missed topics
-            
-            **Why it works:**
-            - Uses actual user behavior data, not guesses
-            - AI-powered semantic analysis finds hidden gaps
-            - Actionable recommendations with difficulty scores
-            """)
-        else:
-            st.markdown("""
-            **Website Relevance Analysis:**
-            - 🕷️ **Website Crawling**: Analyzes your ENTIRE website intelligently
-            - 🎯 **Vector Similarity**: AI compares content to your main topic
-            - 📊 **Relevance Scoring**: Identifies off-topic content
-            - 🔍 **Topic Extraction**: Shows what each page is actually about
-            
-            **Advanced Crawling:**
-            - 🗺️ **Sitemap Discovery**: Finds and parses XML sitemaps automatically
-            - 🔗 **Intelligent Link Following**: Discovers all internal pages
-            - 📈 **Scales to Any Size**: Handles websites with 1000+ pages
-            - ⚡ **Batch Processing**: Efficient AI analysis
-            
-            **Why it's useful:**
-            - Find content that hurts your SEO focus
-            - Identify pages to remove or redirect
-            - Maintain topical authority
-            - Clean up content strategy
-            """)
-    
-    # Handle different analysis modes
-    if analysis_mode == "🔍 Find Content Gaps":
-        if not serper_key:
-            st.info("👈 Enter Serper API key to start")
-            return
-        
-        if not keyword:
-            st.info("👈 Enter a keyword to analyze")
-            return
-        
-        if analyze_btn:
-            try:
-                analyzer = DataDrivenSEOAnalyzer(serper_key, reddit_id, reddit_secret)
-                
-                # Check if embedding model loaded successfully
-                if not analyzer.embedding_model:
-                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
-                    return
-                
-                results = analyzer.run_analysis(keyword, num_competitors)
-                fig, gaps, competitor_topics, competitor_urls, reddit_topics, search_topics, depth_gaps, actionable_topics = results
-                
-                # Display results
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    if fig:
-                        # Display the chart with selection capability
-                        event = st.plotly_chart(fig, use_container_width=True, key="main_chart")
-                        
-                        # Check for clicked points
-                        if st.session_state.get('clicked_point'):
-                            st.subheader("🎯 Selected Point Details")
-                            point_data = st.session_state.clicked_point
-                            
-                            st.write(f"**Type:** {point_data.get('trace_name', 'Unknown')}")
-                            st.write(f"**Topic:** {point_data.get('text', 'N/A')}")
-                            
-                            if point_data.get('url'):
-                                st.write(f"**URL:** [{point_data['url']}]({point_data['url']})")
-                                st.code(point_data['url'], language=None)
-                            
-                            if st.button("Clear Selection"):
-                                del st.session_state.clicked_point
-                                st.rerun()
-                        
-                        # Instructions for users
-                        st.info("💡 **Tip:** Click on legend items to show/hide data types. Use the legend toggle functionality to focus on specific data sources!")
-                        
-                    else:
-                        st.error("No data found for visualization")
-                
-                with col2:
-                    st.subheader("🎯 Actionable Content Ideas")
-                    
-                    for i, topic in enumerate(actionable_topics[:8], 1):
-                        with st.expander(f"#{i} {topic['title'][:50]}... (Score: {topic['opportunity_score']:.0f})"):
-                            st.write(f"**📝 Topic:** {topic['title']}")
-                            st.write(f"**🎯 Difficulty:** {topic['difficulty']}")
-                            st.write(f"**💡 Why gap:** {topic['why_gap']}")
-                            st.write(f"**📋 Angle:** {topic['content_angle']}")
-                            
-                            if topic['source'] == 'reddit' and topic['upvotes'] > 0:
-                                st.write(f"**👍 Engagement:** {topic['upvotes']} upvotes")
-                            
-                            st.caption(f"Source: {topic['source'].replace('_', ' ').title()}")
-                    
-                    st.subheader("📊 Data Sources")
-                    st.metric("Reddit Questions", len(reddit_topics))
-                    st.metric("Search Suggestions", len(search_topics))
-                    st.metric("Thin Content Gaps", len(depth_gaps))
-                    st.metric("Total Opportunities", len(actionable_topics))
-                    
-                    st.subheader("🏢 Competitors Analyzed")
-                    for i, url in enumerate(competitor_urls, 1):
-                        domain = url.split('/')[2].replace('www.', '')
-                        st.write(f"**{i}.** [{domain}]({url})")
-            
-            except Exception as e:
-                st.error(f"Error during analysis: {str(e)}")
-                st.exception(e)
-    
-    else:  # Website Relevance Analysis
-        if not website_url:
-            st.info("👈 Enter a website URL to analyze")
-            return
-        
-        if not target_topic:
-            st.info("👈 Enter your main topic/niche")
-            return
-        
-        if analyze_btn:
-            try:
-                analyzer = DataDrivenSEOAnalyzer(serper_key or "dummy", "", "")  # Dummy key for website analysis
-                
-                # Check if embedding model loaded successfully
-                if not analyzer.embedding_model:
-                    st.error("❌ Failed to load embedding model. Please try refreshing the page.")
-                    return
-                
-                relevance_data = analyzer.analyze_website_relevance(website_url, target_topic, max_pages)
-                
-                if 'error' in relevance_data:
-                    st.error(relevance_data['error'])
-                    return
-                
-                # Display results
-                col1, col2 = st.columns([2, 1])
-                
-                with col1:
-                    st.subheader(f"🎯 Website Relevance Analysis")
-                    
-                    # Create and display visualization
-                    fig = analyzer.create_relevance_visualization(relevance_data)
-                    if fig:
-                        st.plotly_chart(fig, use_container_width=True)
-                    
-                    # Show detailed results
-                    st.subheader("📄 Page-by-Page Analysis")
-                    
-                    # Filter options
-                    show_filter = st.selectbox(
-                        "Show pages:",
-                        ["All Pages", "Irrelevant Only", "Somewhat Relevant", "Highly Relevant"]
-                    )
-                    
-                    filtered_pages = relevance_data['pages']
-                    if show_filter != "All Pages":
-                        filtered_pages = [p for p in relevance_data['pages'] 
-                                        if p['relevance_status'] == show_filter.replace(" Only", "")]
-                    
-                    for i, page in enumerate(filtered_pages, 1):
-                        status_emoji = {"Irrelevant": "🔴", "Somewhat Relevant": "🟡", "Highly Relevant": "🟢"}
-                        emoji = status_emoji.get(page['relevance_status'], "⚪")
-                        
-                        with st.expander(f"{emoji} {page['title'][:60]}... (Similarity: {page['similarity_score']:.1%})"):
-                            st.write(f"**📊 Relevance:** {page['relevance_status']} ({page['similarity_score']:.1%} similar)")
-                            
-                            # Show boost if applied
-                            if 'original_similarity' in page and page['original_similarity'] != page['similarity_score']:
-                                st.write(f"**🚀 AI Boost:** Original: {page['original_similarity']:.1%} → Boosted: {page['similarity_score']:.1%}")
-                            
-                            st.write(f"**🌍 Language:** {page.get('language', 'Unknown')}")
-                            st.write(f"**📄 Word Count:** {page['word_count']} words")
-                            st.write(f"**🔗 URL:** [{page['url']}]({page['url']})")
-                            st.write(f"**🏷️ Main Topics:** {', '.join(page['main_topics'])}")
-                            st.write(f"**📝 Preview:** {page['content_preview']}")
-                            
-                            if page['relevance_status'] == 'Irrelevant':
-                                st.warning("💡 **Recommendation:** Consider removing, redirecting, or rewriting this page to match your main topic.")
-                            elif page['relevance_status'] == 'Somewhat Relevant':
-                                st.info("💡 **Recommendation:** Consider optimizing this page to better align with your main topic.")
-                
-                with col2:
-                    st.subheader("📊 Summary")
-                    
-                    total_pages = relevance_data['total_pages']
-                    irrelevant = relevance_data['irrelevant_pages']
-                    somewhat = relevance_data['somewhat_relevant']
-                    relevant = relevance_data['highly_relevant']
-                    
-                    st.metric("Total Pages Analyzed", total_pages)
-                    st.metric("🔴 Irrelevant Pages", f"{irrelevant} ({irrelevant/total_pages:.1%})")
-                    st.metric("🟡 Somewhat Relevant", f"{somewhat} ({somewhat/total_pages:.1%})")
-                    st.metric("🟢 Highly Relevant", f"{relevant} ({relevant/total_pages:.1%})")
-                    
-                    # Language breakdown
-                    if 'languages_detected' in relevance_data:
-                        st.subheader("🌍 Languages Detected")
-                        languages = relevance_data['languages_detected']
-                        for lang in languages:
-                            lang_pages = len([p for p in relevance_data['pages'] if p.get('language') == lang])
-                            st.write(f"**{lang}:** {lang_pages} pages")
-                    
-                    # Recommendations
-                    st.subheader("💡 Recommendations")
-                    
-                    if irrelevant > 0:
-                        st.warning(f"**{irrelevant} pages** are off-topic and may hurt your SEO focus.")
-                    
-                    if irrelevant > total_pages * 0.3:
-                        st.error("⚠️ **High Alert:** Over 30% of your content is irrelevant to your main topic!")
-                    elif irrelevant > total_pages * 0.1:
-                        st.warning("⚠️ **Warning:** Over 10% of your content is off-topic.")
-                    else:
-                        st.success("✅ **Good:** Most of your content stays on-topic!")
-                    
-                    st.markdown("**Action Items:**")
-                    if irrelevant > 0:
-                        st.write(f"- Remove or redirect {irrelevant} irrelevant pages")
-                    if somewhat > 0:
-                        st.write(f"- Optimize {somewhat} somewhat relevant pages")
-                    st.write(f"- Keep creating content like your {relevant} highly relevant pages")
-                    
-                    # Multilingual notice
-                    if len(relevance_data.get('languages_detected', [])) > 1:
-                        st.info("🌍 **Multilingual Site Detected**: The tool now handles multiple languages better. Non-English content is evaluated fairly.")
-            
-            except Exception as e:
-                st.error(f"Error during website analysis: {str(e)}")
-                st.exception(e)
-    
-    # Footer
-    st.markdown("""
-    <div class='footer'>
-        Powered by Data-Driven SEO Analysis | 
-        <a href='https://yourwebsite.com' target='_blank' style='color: #ff4b4b;'>Your Website</a> | 
-        Built with Streamlit & AI
-    </div>
-    """, unsafe_allow_html=True)
-
-if __name__ == "__main__":
-    main()
-    try:
-                    # Comprehensive warning suppression
-                    import warnings
-                    import logging
-                    
-                    # Suppress all warnings temporarily
-                    warnings.filterwarnings("ignore")
-                    logging.getLogger().setLevel(logging.ERROR)
-                    
-                    # Temporarily redirect stderr
-                    import sys
-                    from io import StringIO
-                    old_stderr = sys.stderr
-                    sys.stderr = StringIO()
-                    
-                    try:
-                        st.session_state.embedding_model = SentenceTransformer('all-MiniLM-L6-v2')
-                    finally:
-                        # Restore stderr
-                        sys.stderr = old_stderr
-                    
-    except Exception as e:
-                    st.error(f"Failed to load embedding model: {e}")
-                    st.session_state.embedding_model = None
-        
-                    self.embedding_model = st.session_state.embedding_model
-        
-                    self.headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-        }
-        
-        # Stop words for content analysis
-        # Initialize stop words with fallback
-    try:
-            self.stop_words = set(stopwords.words('english'))
-        except:
-            # Fallback stopwords if NLTK fails
-            self.stop_words = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
-    
-    def search_competitors(self, keyword: str, num_results: int = 10) -> List[str]:
-        """Search for competitor URLs using Serper"""
-        url = "https://google.serper.dev/search"
-        
-        payload = {'q': keyword, 'num': num_results}
-        headers = {'X-API-KEY': self.serper_key, 'Content-Type': 'application/json'}
-        
-        response = requests.post(url, headers=headers, json=payload)
-        response.raise_for_status()
-        
-        results = response.json()
-        return [result['link'] for result in results.get('organic', [])]
-    
-    def get_search_suggestions(self, keyword: str) -> List[TopicData]:
-        """Get real search suggestions from Google Autocomplete - NO FALLBACKS"""
-        suggestions = []
-        
-        # Google Autocomplete API - only real data
-        base_suggestions = [
-            f"{keyword} how to",
-            f"{keyword} best",
-            f"{keyword} vs",
-            f"{keyword} for",
-            f"{keyword} guide",
-            f"{keyword} problems",
-            f"{keyword} reviews",
-            f"{keyword} comparison"
-        ]
-        
-        for base in base_suggestions:
-            try:
-                autocomplete_url = f"http://suggestqueries.google.com/complete/search?client=firefox&q={quote_plus(base)}"
-                response = requests.get(autocomplete_url, timeout=5, headers=self.headers)
-                
-                if response.status_code == 200:
-                    data = response.json()
-                    if len(data) > 1 and isinstance(data[1], list):
-                        for suggestion in data[1][:3]:  # Top 3 per base
-                            if (len(suggestion) > 10 and 
-                                suggestion.lower() != base.lower() and
-                                suggestion not in suggestions):
-                                suggestions.append(suggestion)
-                
-                time.sleep(0.5)  # Rate limiting
-                
-            except Exception as e:
-                continue  # Just skip if API fails - NO FALLBACKS
-        
-        # Convert to TopicData objects - ONLY REAL DATA
-        topic_data = []
-        if suggestions and self.embedding_model:
-            embeddings = self.embedding_model.encode(suggestions)
-            
-            for suggestion, embedding in zip(suggestions, embeddings):
-                topic_data.append(TopicData(
-                    text=suggestion,
-                    embedding=embedding,
-                    source='search_suggest',
-                    source_url='google_autocomplete',
-                    competitor_id=-1,
-                    confidence=0.8
-                ))
-        
-        return topic_data
-    
-    def mine_reddit_discussions(self, keyword: str, max_posts: int = 30) -> List[TopicData]:
-        """Mine Reddit for real user questions - NO FALLBACKS"""
-        reddit_topics = []
-        
-        if not self.reddit:
-            st.info("Reddit API not configured. Skipping Reddit mining.")
-            return reddit_topics  # Return empty list - NO FALLBACKS
-        
-        try:
-            subreddit = self.reddit.subreddit('all')
-            
-            # Search for posts containing the keyword
-            for submission in subreddit.search(keyword, limit=max_posts, sort='hot'):
-                
-                # Process the main post title
-                title = submission.title.strip()
-                if self._is_meaningful_question(title, keyword):
-                    reddit_topics.append({
-                        'text': title,
-                        'upvotes': submission.score,
-                        'url': f"https://reddit.com{submission.permalink}"
-                    })
-                
-                # Process selftext if it contains questions
-                if submission.selftext and len(submission.selftext) > 50:
-                    questions = self._extract_questions(submission.selftext, keyword)
-                    for question in questions:
-                        reddit_topics.append({
-                            'text': question,
-                            'upvotes': submission.score,
-                            'url': f"https://reddit.com{submission.permalink}"
-                        })
-            
-            # Filter and convert to embeddings - ONLY REAL DATA
-            if reddit_topics and self.embedding_model:
-                filtered_topics = self._filter_reddit_topics(reddit_topics, keyword)
-                
-                if filtered_topics:
-                    texts = [topic['text'] for topic in filtered_topics]
-                    embeddings = self.embedding_model.encode(texts)
-                    
-                    topic_data = []
-                    for topic, embedding in zip(filtered_topics, embeddings):
-                        topic_data.append(TopicData(
-                            text=topic['text'],
-                            embedding=embedding,
-                            source='reddit',
-                            source_url=topic['url'],
-                            competitor_id=-1,
-                            confidence=0.9,
-                            upvotes=topic['upvotes']
-                        ))
-                    
-                    return topic_data
-        
-        except Exception as e:
-            st.warning(f"Reddit mining failed: {e}")
-        
-        return []  # Return empty if no real data found
-    
-    def _is_meaningful_question(self, text: str, keyword: str) -> bool:
-        """Check if text is a meaningful question"""
-        text_lower = text.lower()
-        keyword_lower = keyword.lower()
-        
-        # Must contain the keyword (strict requirement)
-        if keyword_lower not in text_lower:
-            return False
-        
-        # Filter out garbage patterns
-        garbage_patterns = [
-            'carrying on here', 'character limit', 'reddit mod',
-            r'^(so|and|but|the|a|an)\s', r'^\w{1,2}\s'
-        ]
-        
-        for pattern in garbage_patterns:
-            if re.search(pattern, text_lower):
-                return False
-        
-        # Must be long enough
-        if len(text.split()) < 4:
-            return False
-        
-        # Should contain question indicators
-        indicators = ['how', 'what', 'why', 'where', 'when', 'which', 'best', 'recommend', '?', 'help', 'advice']
-        return any(indicator in text_lower for indicator in indicators)
-    
-    def _extract_questions(self, text: str, keyword: str) -> List[str]:
-        """Extract questions from text"""
-        questions = []
-        sentences = re.split(r'[.!?]+', text)
-        
-        for sentence in sentences[:5]:  # Check first 5 sentences
-            sentence = sentence.strip()
-            if (self._is_meaningful_question(sentence, keyword) and 
-                20 <= len(sentence) <= 200):
-                questions.append(sentence)
-        
-        return questions[:2]  # Max 2 questions per text
-    
-    def _filter_reddit_topics(self, topics: List[Dict], keyword: str) -> List[Dict]:
-        """Filter and deduplicate Reddit topics"""
-        filtered = []
-        seen_texts = set()
-        
-        for topic in topics:
-            text = topic['text'].strip()
-            text_lower = text.lower()
-            
-            # Skip duplicates
-            if text_lower in seen_texts:
-                continue
-            
-            # Skip non-English (basic check)
-            if not any(c.isascii() for c in text):
-                continue
-            
-            seen_texts.add(text_lower)
-            filtered.append(topic)
-        
-        # Sort by upvotes and take top ones
-        filtered.sort(key=lambda x: x['upvotes'], reverse=True)
-        return filtered[:10]  # Top 10 quality topics
-    
-    def scrape_competitor_content(self, urls: List[str], progress_bar=None) -> List[TopicData]:
-        """Scrape competitor content with proper depth analysis"""
-        all_topics = []
-        
-        if not self.embedding_model:
-            st.warning("Embedding model not loaded. Skipping competitor analysis.")
-            return all_topics
-        
-        for i, url in enumerate(urls):
-            if progress_bar:
-                progress_bar.progress((i + 1) / len(urls), f"Analyzing competitor {i+1}/{len(urls)}")
-            
-            try:
-                response = requests.get(url, headers=self.headers, timeout=10)
-                response.raise_for_status()
-                
-                soup = BeautifulSoup(response.content, 'html.parser')
-                
-                # Remove noise elements
-                for element in soup(["script", "style", "nav", "footer", "header", "aside", "noscript"]):
-                    element.decompose()
-                
-                # Get page title
-                title = soup.find('title')
-                title_text = title.get_text().strip() if title else url.split('/')[-1]
-                
-                # Get main content with multiple strategies
-                content = self._extract_main_content(soup)
-                content = re.sub(r'\s+', ' ', content).strip()
-                
-                # Calculate word count
-                word_count = len([w for w in content.split() if w.isalpha()])
-                
-                if word_count > 50:  # Include pages with substantial content
-                    # Extract headings for topic analysis
-                    headings = []
-                    for tag in ['h1', 'h2', 'h3']:
-                        for heading in soup.find_all(tag):
-                            heading_text = heading.get_text().strip()
-                            if 10 <= len(heading_text) <= 100:
-                                headings.append(heading_text)
-                    
-                    # Process headings as topics
-                    if headings:
-                        embeddings = self.embedding_model.encode(headings[:5])  # Top 5 headings
-                        
-                        for heading, embedding in zip(headings[:5], embeddings):
-                            all_topics.append(TopicData(
-                                text=heading,
-                                embedding=embedding,
-                                source='competitor',
-                                source_url=url,
-                                competitor_id=i,
-                                confidence=0.6,
-                                word_count=word_count  # Total article word count
-                            ))
-                
-                time.sleep(1)
-                
-            except Exception as e:
-                st.warning(f"Error analyzing {url}: {str(e)}")
-                continue
-        
-        return all_topics
-    
-    def _extract_main_content(self, soup) -> str:
-        """Extract main content using multiple strategies"""
-        content = ""
-        
-        # Strategy 1: Look for main content selectors
-        content_selectors = [
-            'article', 'main', '[role="main"]', '.content', '#content', 
-            '.post-content', '.entry-content', '.page-content', '.article-content',
-            '.post', '.entry', '.article', '.blog-post'
-        ]
-        
-        for selector in content_selectors:
-            elements = soup.select(selector)
-            if elements:
-                content = ' '.join([elem.get_text() for elem in elements])
-                break
-        
-        # Strategy 2: If no main content found, use body but filter out common noise
-        if not content or len(content) < 100:
-            body = soup.find('body')
-            if body:
-                # Remove common navigation and sidebar elements
-                for noise in body.select('nav, .navigation, .sidebar, .menu, .footer, .header, .breadcrumb, .social, .share'):
-                    noise.decompose()
-                content = body.get_text()
-        
-        # Strategy 3: Fallback to all text
-        if not content:
-            content = soup.get_text()
-        
-        return content
-    
-    def analyze_content_depth(self, competitor_topics: List[TopicData]) -> List[TopicData]:
-        """Find thin content opportunities with clear, actionable topics"""
-        depth_gaps = []
-        
-        if not competitor_topics or not self.embedding_model:
-            return depth_gaps
-        
-        # Group by URL to get article depths
-        url_depths = {}
-        url_topics = {}
-        
-        for topic in competitor_topics:
-            url = topic.source_url
-            if url not in url_depths:
-                url_depths[url] = topic.word_count
-                url_topics[url] = topic.text
-        
-        # Find thin content (less than 1500 words)
-        thin_content = {url: words for url, words in url_depths.items() if words < 1500}
-        
-        if thin_content:
-            # Create meaningful depth gap opportunities
-            for url, word_count in list(thin_content.items())[:3]:  # Top 3 opportunities
-                original_topic = url_topics.get(url, "")
-                
-                # Extract meaningful topic from the heading
-                meaningful_topic = self._extract_meaningful_topic(original_topic, url)
-                
-                # Create actionable gap description
-                gap_text = f"Complete {meaningful_topic} Guide (current best: {word_count} words)"
-                gap_embedding = self.embedding_model.encode([gap_text])[0]
-                
-                depth_gaps.append(TopicData(
-                    text=gap_text,
-                    embedding=gap_embedding,
-                    source='depth_gap',
-                    source_url=url,
-                    competitor_id=-1,
-                    confidence=0.8,
-                    word_count=word_count
-                ))
-        
-        return depth_gaps
-    
-    def _extract_meaningful_topic(self, heading: str, url: str) -> str:
-        """Extract a clear, actionable topic from heading or URL"""
-        
-        # Clean the heading first
-        cleaned_heading = heading.strip()
-        
-        # Remove common prefixes
-        prefixes_to_remove = ['r/', 'complete guide:', 'ultimate guide:', 'best', 'top', 'how to']
-        for prefix in prefixes_to_remove:
-            if cleaned_heading.lower().startswith(prefix.lower()):
-                cleaned_heading = cleaned_heading[len(prefix):].strip()
-        
-        # If heading is still unclear, extract from URL
-        if (len(cleaned_heading.split()) < 2 or 
-            cleaned_heading.lower() in ['seedboxes', 'home', 'main', 'index']):
-            
-            # Extract meaningful part from URL
-            domain = url.split('/')[2].replace('www.', '')
-            
-            # Common URL patterns to extract topics
-            url_lower = url.lower()
-            
-            if 'seedbox' in url_lower:
-                if 'setup' in url_lower or 'guide' in url_lower:
-                    return "Seedbox Setup"
-                elif 'review' in url_lower or 'comparison' in url_lower:
-                    return "Seedbox Reviews and Comparisons"
-                elif 'plex' in url_lower:
-                    return "Seedbox for Plex Setup"
-                elif 'vpn' in url_lower:
-                    return "Seedbox VPN Configuration"
-                else:
-                    return "Seedbox Guide"
-            
-            elif 'plex' in url_lower:
-                if 'server' in url_lower:
-                    return "Plex Media Server Setup"
-                elif 'seedbox' in url_lower:
-                    return "Plex with Seedbox Integration"
-                else:
-                    return "Plex Configuration"
-            
-            elif 'vpn' in url_lower:
-                return "VPN Setup and Configuration"
-            
-            # Fallback to domain-based topic
-            if 'seedbox' in domain:
-                return "Seedbox Solutions"
-            elif 'plex' in domain:
-                return "Plex Media Solutions"
-            else:
-                return f"{domain.split('.')[0].title()} Guide"
-        
-        # Clean up the heading further
-        # Capitalize properly
-        words = cleaned_heading.split()
-        if len(words) > 0:
-            # Make it title case but keep important words capitalized
-            important_words = ['seedbox', 'plex', 'vpn', 'api', 'ssl', 'ssh', 'ftp']
-            result_words = []
-            
-            for word in words:
-                if word.lower() in important_words:
-                    result_words.append(word.upper())
-                else:
-                    result_words.append(word.capitalize())
-            
-            return ' '.join(result_words)
-        
-        return cleaned_heading.title() if cleaned_heading else "Content Topic"
-    
-    def find_content_gaps(self, competitor_topics: List[TopicData], 
-                         reddit_topics: List[TopicData],
-                         search_topics: List[TopicData],
-                         depth_gaps: List[TopicData]) -> List[TopicData]:
-        """Find real content gaps with more aggressive detection"""
-        all_user_topics = reddit_topics + search_topics + depth_gaps
-        gaps = []
-        
-        if not all_user_topics:
-            return gaps
-        
-        if not competitor_topics:
-            # If no competitor data, everything is a gap
-            return all_user_topics
-        
-        competitor_embeddings = np.array([t.embedding for t in competitor_topics])
-        
-        # More aggressive gap detection
-        for user_topic in all_user_topics:
-            # Check if competitors cover this topic
-            similarities = cosine_similarity([user_topic.embedding], competitor_embeddings)[0]
-            max_similarity = np.max(similarities) if len(similarities) > 0 else 0
-            
-            # Lower threshold for gap detection (was 0.7, now 0.6)
-            # This means if similarity < 60%, it's considered a gap
-            if max_similarity < 0.6:
-                gaps.append(user_topic)
-            
-            # Also check for partial coverage gaps
-            # If similarity is 0.6-0.75, it might still be worth targeting
-            elif 0.6 <= max_similarity < 0.75:
-                # Check if it's a high-value topic (search suggestion or highly upvoted)
-                if (user_topic.source == 'search_suggest' or 
-                    (user_topic.source == 'reddit' and user_topic.upvotes > 20) or
-                    user_topic.source == 'depth_gap'):
-                    
-                    # Mark as partial gap - still worth targeting
-                    user_topic.confidence = user_topic.confidence * 0.8  # Reduce confidence slightly
-                    gaps.append(user_topic)
-        
-        # Add some semantic gap detection
-        # Look for topics that are semantically different from all competitor content
-        if competitor_topics and all_user_topics:
-            semantic_gaps = self._find_semantic_gaps(competitor_topics, all_user_topics)
-            if semantic_gaps:  # Only extend if semantic_gaps is not None/empty
-                gaps.extend(semantic_gaps)
-        
-        # Sort by confidence and engagement
-        gaps.sort(key=lambda x: (x.confidence, x.upvotes), reverse=True)
-        return gaps
-    
-    def _find_semantic_gaps(self, competitor_topics: List[TopicData], 
-                           user_topics: List[TopicData]) -> List[TopicData]:
-        """Find semantic gaps using clustering"""
-        semantic_gaps = []
-        
-        if not self.embedding_model:
-            return semantic_gaps
-        
-        # Find topics that are semantically isolated from competitor content
-        for user_topic in user_topics:
-            competitor_distances = []
-            
-            for comp_topic in competitor_topics:
-                # Calculate semantic distance
-                similarity = cosine_similarity([user_topic.embedding], [comp_topic.embedding])[0][0]
-                distance = 1 - similarity
-                competitor_distances.append(distance)
-            
-            # If this topic is semantically distant from ALL competitor topics
-            min_distance = min(competitor_distances) if competitor_distances else 1.0
-            
-            if min_distance > 0.4:  # Semantically isolated
-                # Create a semantic gap entry
-                gap_text = f"Semantic gap: {user_topic.text}"
-                
-                semantic_gap = TopicData(
-                    text=gap_text,
-                    embedding=user_topic.embedding,
-                    source=f'semantic_{user_topic.source}',
-                    source_url=user_topic.source_url,
-                    competitor_id=-1,
-                    confidence=0.7,
-                    upvotes=user_topic.upvotes,
-                    word_count=user_topic.word_count
-                )
-                
-                semantic_gaps.append(semantic_gap)
-        
-        return semantic_gaps
-    
-    def _categorize_relevance(self, similarity_score: float) -> str:
-        """Categorize relevance based on similarity score with more lenient thresholds"""
-        if similarity_score >= 0.5:  # Lowered from 0.7
-            return "Highly Relevant"
-        elif similarity_score >= 0.25:  # Lowered from 0.4
-            return "Somewhat Relevant"
-        else:
-            return "Irrelevant"
-    
-    def _extract_main_topics(self, content: str) -> List[str]:
-        """Extract main topics from content using simple keyword extraction with fallback"""
-        try:
-            # Try NLTK tokenization first
-            words = word_tokenize(content.lower())
-        except:
-            # Fallback to simple split if NLTK fails
-            words = content.lower().split()
-        
-        # Remove stop words and get word frequency
-        try:
-            # Try using NLTK stopwords
-            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in self.stop_words]
-        except:
-            # Fallback stopwords if NLTK fails
-            basic_stopwords = {'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'this', 'that', 'these', 'those', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'about', 'into', 'through', 'during', 'before', 'after', 'above', 'below', 'up', 'down', 'out', 'off', 'over', 'under', 'again', 'further', 'then', 'once'}
-            clean_words = [w for w in words if w.isalpha() and len(w) > 3 and w not in basic_stopwords]
-        
-        word_freq = Counter(clean_words)
-        
-        # Get top 5 most frequent meaningful words
-        top_words = [word for word, freq in word_freq.most_common(5)]
-        return top_words
-    
-    def analyze_website_relevance(self, website_url: str, target_topic: str, max_pages: int = None) -> Dict:
-        """Analyze entire website to find irrelevant content using vector embeddings"""
-        st.info(f"🔍 Analyzing {website_url} for topic relevance...")
-        
-        if not self.embedding_model:
-            return {"error": "Embedding model not loaded"}
-        
-        try:
-            # Get all pages from the website
-            pages_data = self._crawl_entire_website(website_url, max_pages)
-            
-            if not pages_data:
-                return {"error": "Could not crawl website pages"}
-            
-            # Batch process embeddings for efficiency
-            st.info(f"🧠 Processing {len(pages_data)} pages with AI...")
-            target_embedding = self.embedding_model.encode([target_topic])[0]
-            
-            # Process pages in batches to avoid memory issues
-            batch_size = 50
-            relevance_results = []
-            
-            progress_bar = st.progress(0)
-            
-            for i in range(0, len(pages_data), batch_size):
-                batch = pages_data[i:i + batch_size]
-                batch_texts = [page['content'] for page in batch]
-                
-                # Process batch embeddings
-                batch_embeddings = self.embedding_model.encode(batch_texts, show_progress_bar=False)
-                
-                for j, page in enumerate(batch):
-                    # Calculate similarity to target topic
-                    similarity = cosine_similarity([target_embedding], [batch_embeddings[j]])[0][0]
-                    
-                    relevance_results.append({
-                        'url': page['url'],
-                        'title': page['title'],
-                        'word_count': page['word_count'],
-                        'similarity_score': similarity,
-                        'relevance_status': self._categorize_relevance(similarity),
-                        'content_preview': page['content'][:200] + "...",
-                        'main_topics': self._extract_main_topics(page['content'])
-                    })
-                
-                # Update progress
-                progress = min((i + batch_size) / len(pages_data), 1.0)
-                progress_bar.progress(progress)
-            
-            # Sort by least relevant first (lowest similarity)
-            relevance_results.sort(key=lambda x: x['similarity_score'])
-            
-            return {
-                'target_topic': target_topic,
-                'total_pages': len(relevance_results),
-                'irrelevant_pages': len([r for r in relevance_results if r['relevance_status'] == 'Irrelevant']),
-                'somewhat_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Somewhat Relevant']),
-                'highly_relevant': len([r for r in relevance_results if r['relevance_status'] == 'Highly Relevant']),
-                'pages': relevance_results
-            }
-            
-        except Exception as e:
-            return {"error": f"Error analyzing website: {str(e)}"}
