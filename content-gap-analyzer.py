@@ -1010,7 +1010,7 @@ class DataDrivenSEOAnalyzer:
             }
             
         except Exception as e:
-            return {"error": f"Error analyzing website: {str(e)}"} Calculate word count
+            return {"error": f"Error analyzing website: {str(e)}"}
                 word_count = len([w for w in content.split() if w.isalpha()])
                 
                 if word_count > 50:  # Include pages with substantial content
